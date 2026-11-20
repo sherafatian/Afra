@@ -19,7 +19,7 @@ class NormalizeApiDates
             $response->setData($this->normalize($response->getData(true)));
         }
 
-return $response;
+        return $response;
     }
 
     private function normalize(mixed $value): mixed

@@ -11,6 +11,124 @@
     }
   ],
   "paths": {
+    "/api/auth/csrf": {
+      "get": {
+        "operationId": "SessionController_csrf_get",
+        "summary": "csrf",
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Afra-Client",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "spa"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/auth/end-session": {
+      "post": {
+        "operationId": "SessionController_end_post",
+        "summary": "end",
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Afra-Client",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "spa"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndSessionInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "operationId": "AuthController_login_post",
@@ -175,7 +293,62 @@
             "description": "Rate limit exceeded"
           }
         },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshInput"
+              }
+            }
+          }
+        },
         "description": "Requires opaque afra_refresh HttpOnly cookie and allowed Origin/CSRF nonce. Rotates token; replay revokes family."
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "operationId": "ReadinessController_get",
+        "summary": "App\\Http\\Controllers\\ReadinessController",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
       }
     },
     "/api/v1/me": {
@@ -427,6 +600,64 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}": {
+      "get": {
+        "operationId": "WorkspaceController_projectDetail_get",
+        "summary": "projectDetail",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
           }
         }
       }
@@ -2353,6 +2584,448 @@
         }
       }
     },
+    "/api/v1/projects/{project}/requirements": {
+      "get": {
+        "operationId": "RequirementController_index_get",
+        "summary": "index",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "post": {
+        "operationId": "RequirementController_save_post",
+        "summary": "save",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequirementInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}/requirements/{requirement}": {
+      "get": {
+        "operationId": "RequirementController_detail_get",
+        "summary": "detail",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requirement",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "put": {
+        "operationId": "RequirementController_save_put",
+        "summary": "save",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requirement",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current optimistic version, e.g. 1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequirementInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}/requirements/{requirement}/archive": {
+      "post": {
+        "operationId": "RequirementController_archive_post",
+        "summary": "archive",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requirement",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}/requirements/{requirement}/compatibility": {
+      "post": {
+        "operationId": "RequirementController_confirm_post",
+        "summary": "confirm",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requirement",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequirementCompatibilityInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project}/roles": {
       "get": {
         "operationId": "AccessController_roles_get",
@@ -3463,6 +4136,27 @@
                     "required"
                   ]
                 }
+              },
+              "requirements": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version"
+                  ]
+                }
               }
             },
             "required": [
@@ -3999,6 +4693,128 @@
         "required": [
           "password",
           "reason"
+        ]
+      },
+      "RequirementInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "content": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 20000
+              },
+              "acceptance_criteria": {
+                "type": "string",
+                "maxLength": 20000
+              },
+              "product_version": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100
+              },
+              "priority": {
+                "enum": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              }
+            },
+            "required": [
+              "description",
+              "acceptance_criteria",
+              "priority"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "title",
+          "content",
+          "reason"
+        ]
+      },
+      "RequirementCompatibilityInput": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "case_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "requirement_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "case_id",
+          "case_version",
+          "requirement_version",
+          "reason"
+        ]
+      },
+      "ReasonInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "EndSessionInput": {
+        "type": "object",
+        "properties": {
+          "expected_session_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "expected_session_id"
+        ]
+      },
+      "RefreshInput": {
+        "type": "object",
+        "properties": {
+          "expected_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expected_user_id": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "expected_session_id",
+          "expected_user_id"
         ]
       }
     }

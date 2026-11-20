@@ -3,9 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Services\TokenKeys;
 use Closure;
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,7 +14,7 @@ class ApiIdentity
     public function handle(Request $request, Closure $next): Response
     {
         try {
-            $claims = JWT::decode($request->bearerToken() ?? '', new Key(file_get_contents(config('afra.public_key')), 'RS256'));
+            $claims = app(TokenKeys::class)->decode($request->bearerToken() ?? '');
         } catch (\Throwable $e) {
             abort(401, 'Invalid access token.');
         }

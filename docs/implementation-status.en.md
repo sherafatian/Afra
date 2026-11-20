@@ -16,8 +16,8 @@
 ## Explicitly incomplete
 
 * Comprehensive authorization/security acceptance across all future domain workflows and reports. Current project/section filtering and authority-bounded role/group/direct-grant updates have focused regression coverage; this does not constitute a full security audit.
-* Full calendar date picker (current account expiry accepts validated Solar Hijri text), national-ID encryption/checksum/fingerprint and profile identity workflow, avatars/reencoding, full profile identity/avatar UI, CSRF bootstrap/cross-tab refresh, signing-key rotation and complete localized error contract.
-* Requirement revisions/compatibility/impact/traceability; independently reviewed pinned shared steps and consumer updates; rich templates/datasets/custom-field schema validation/versioning; dynamic saved-view planning, preview fingerprints, configuration/data expansion, required-variant aggregation.
+* Full calendar date picker (current account expiry accepts validated Solar Hijri text), national-ID encryption/checksum/fingerprint and profile identity workflow, avatars/reencoding, full profile identity/avatar UI, complete localized error contract and full production/browser acceptance.
+* Complete historical/variant traceability; independently reviewed pinned shared steps and consumer updates; rich templates/datasets/custom-field schema validation/versioning; dynamic saved-view planning, preview fingerprints, configuration/data expansion, required-variant aggregation.
 * Generic record storage/forms exist for these domains but **are not completed workflows** and must not be represented as such.
 * Execution drafts/pause/resume/timing, comments/mentions/follows/notifications; complete transition matrix; release gates and richer actionable/trend/coverage dashboards.
 * CSV/XLSX import/export; professional all-filtered-data PDF/print (current print is basic browser printing).
@@ -26,7 +26,7 @@
 
 ## Verification
 
-Real PostgreSQL17 feature suite:38 tests,324 assertions passed (includes two framework smoke tests). Coverage includes project/section isolation, independent/stale review, frozen snapshots, idempotency, inactive/expired accounts, group/category deny precedence, privilege restoration bounds, optimistic membership/assignment/rule edits, substitute execution, independent evidence-read denial, encrypted20MiB upload/stream roundtrip, immutable evidence, UTC metadata, password-challenge cancellation and refresh replay revocation. Seven frontend tests pass, including single-flight renewal and prevention of stale refresh/write replay after an identity change. This is focused regression coverage, not a comprehensive security audit.
+Real PostgreSQL17 feature suite:52 tests,458 assertions passed (includes two framework smoke tests). Coverage includes project/section isolation, independent/stale review, frozen snapshots, idempotency, inactive/expired accounts, group/category deny precedence, privilege restoration bounds, optimistic membership/assignment/rule edits, substitute execution, independent evidence-read denial, encrypted20MiB upload/stream roundtrip, immutable evidence, UTC metadata, password-challenge cancellation and refresh replay revocation. Nine frontend tests pass, including single-flight renewal and prevention of stale refresh/write replay after an identity change. This is focused regression coverage, not a comprehensive security audit.
 
 React TypeScript/Vite build passed. Docker PHP8.4 build passed using temporary BuildKit CA secret for the environment; the CA was not baked into the image. Docker CLI server is development-only. Browser checks/screenshots use local actual application and synthetic training data; detailed results are in validation documents. No organization server was accessed. No production credentials or keys are included.
 
@@ -45,3 +45,15 @@ Signing-key generation now bundles a minimal OpenSSL configuration, checks gener
 User guides were intentionally not updated in this iteration.
 
 Real-browser account flow passed: ordinary account creation, Persian-digit expiry roundtrip, disable/reenable, reset, mobile width/footer and forced temporary-password change. No page errors or failed API requests. Repeat only on synthetic data with `FrontEnd/tests/system_accounts.py`.
+
+## Requirement and session continuation
+
+Dedicated requirement API/UI now replaces generic requirement forms: acceptance criteria, separate product/content versions, immutable revisions, optimistic edits, archival, per-case-revision links, scoped change impact and independent compatibility confirmation. Review submission pins requirement scope; an intervening change prevents approval. New runs freeze compatible exact requirement revisions. A historic Pass cannot verify a newer requirement after compatibility confirmation. Current coverage is per case/exact requirement revision; full plan/configuration baseline aggregation and historical matrices remain unfinished. Hidden-section cases/results are filtered from impact.
+
+Browser sessions now recover through origin-checked CSRF bootstrap and opaque refresh rotation, coordinated with Web Locks across modern same-origin browser tabs. Session/subject binding prevents a previous user's retry from crossing into another login. BroadcastChannel clears other tabs on explicit login/logout. Cookie-authenticated logout revokes a family even with an invalid/expired access token; network failure does not falsely clear the interface as a successful logout. Production refresh cookie uses the __Secure- prefix. Configured previous public keys support explicit kid rotation. API responses use no-store/security headers/request IDs; bounded proxy trust is configurable. Actual browser checks passed reload recovery, two-tab recovery and propagated logout.
+
+`php artisan afra:check --production` checks infrastructure/configuration; `/api/ready` checks dependencies/current migrations and omits diagnostic paths publicly. Both explicitly retain incomplete release acceptance. These checks do not replace the outstanding functional, security, load and deployment acceptance. User guides were not changed.
+
+Native deployment templates and topology/permissions notes are in deploy/README.en.md and deploy/README.fa.md. Nginx/FPM and Supervisor examples are unexecuted templates; IIS XML is well formed but IIS/ARR runtime acceptance was not performed. The explicit release blocker register is docs/release-acceptance.en.md.
+
+Refresh now requires both expected_session_id and expected_user_id; legacy clients without binding are rejected rather than silently switching subjects. Coordinate frontend/backend deployment. Project selection now supports scoped server search beyond the first page; malformed email arrays produce validation errors instead of server errors.

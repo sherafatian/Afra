@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Firebase\JWT\JWT;
+use App\Services\TokenKeys;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,18 +15,20 @@ class AuthController extends Controller
     private function response(User $user, string $sessionId, string $refresh, string $csrf): JsonResponse
     {
         $now = time();
-        $token = JWT::encode(['iss' => config('afra.issuer'), 'aud' => $user->must_change_password ? 'afra-password-change' : 'afra-internal', 'sub' => (string) $user->id, 'sid' => $sessionId, 'jti' => (string) Str::uuid(), 'iat' => $now, 'nbf' => $now, 'exp' => $now + ($user->must_change_password ? 300 : 900), 'auth_version' => $user->auth_version, 'acl_version' => $user->acl_version, 'token_use' => $user->must_change_password ? 'password_change' : 'access'], file_get_contents(config('afra.private_key')), 'RS256', 'primary');
+        $token = app(TokenKeys::class)->sign(['iss' => config('afra.issuer'), 'aud' => $user->must_change_password ? 'afra-password-change' : 'afra-internal', 'sub' => (string) $user->id, 'sid' => $sessionId, 'jti' => (string) Str::uuid(), 'iat' => $now, 'nbf' => $now, 'exp' => $now + ($user->must_change_password ? 300 : 900), 'auth_version' => $user->auth_version, 'acl_version' => $user->acl_version, 'token_use' => $user->must_change_password ? 'password_change' : 'access']);
 
         $response = response()->json(['data' => ['access_token' => $token, 'csrf_token' => $csrf, 'user' => $user->only(['id', 'name', 'email', 'is_system_admin', 'must_change_password'])]]);
         if ($user->must_change_password) {
-            return $response->withoutCookie('afra_refresh', '/api/auth');
+            return $response->withoutCookie(config('afra.refresh_cookie'), '/api/auth');
         }
 
-        return $response->cookie('afra_refresh', $refresh, 10080, '/api/auth', null, app()->isProduction(), true, false, 'strict');
+        return $response->cookie(config('afra.refresh_cookie'), $refresh, 10080, '/api/auth', null, app()->isProduction(), true, false, 'strict');
     }
 
     public function login(Request $r): JsonResponse
     {
+        abort_unless($r->isJson(), 415, 'JSON request required.');
+        abort_if($r->header('Origin') && ! in_array($r->header('Origin'), config('afra.origins'), true), 403);
         $v = $r->validate(['email' => 'required|email', 'password' => 'required|string|max:128']);
         $u = User::where('email', mb_strtolower($v['email']))->first();
         $dummyHash = config('hashing.driver') === 'argon2id' ? '$argon2id$v=19$m=65536,t=4,p=1$vLvifhBofgFByhowKOyIbA$kepkHXpsL0px1D+utE6g7yRkh8BK0CaYIDacukskMy8' : '$2y$12$1ZzK2MY4jz9DY0qzRbxJ/eA16lj/V6CnDviB3Yb4t2rS.lPge44r6';
@@ -43,10 +45,11 @@ class AuthController extends Controller
     public function refresh(Request $r): JsonResponse
     {
         abort_unless(in_array($r->header('Origin'), config('afra.origins'), true), 403);
-        $hash = hash('sha256', $r->cookie('afra_refresh', ''));
+        $expected = $r->validate(['expected_session_id' => 'sometimes|uuid', 'expected_user_id' => 'sometimes|integer|min:1']);
+        $hash = hash('sha256', $r->cookie(config('afra.refresh_cookie'), ''));
         $refresh = bin2hex(random_bytes(32));
         $csrf = bin2hex(random_bytes(32));
-        $session = DB::transaction(function () use ($r, $hash, $refresh, $csrf) {
+        $session = DB::transaction(function () use ($r, $hash, $refresh, $csrf, $expected) {
             $spent = DB::table('spent_refresh_tokens')->where('hash', $hash)->first();
             if ($spent) {
                 DB::table('auth_sessions')->where('id', $spent->session_id)->update(['revoked_at' => now()]);
@@ -57,6 +60,9 @@ class AuthController extends Controller
                 $q->where('refresh_hash', $hash)->orWhere('previous_hash', $hash);
             })->lockForUpdate()->first();
             if (! $s || $s->revoked_at || now()->gte($s->expires_at)) {
+                return null;
+            }
+            if (! isset($expected['expected_session_id'], $expected['expected_user_id']) || $expected['expected_session_id'] !== $s->id || (int) $expected['expected_user_id'] !== $s->user_id) {
                 return null;
             }
             if ($s->previous_hash === $hash) {
@@ -83,7 +89,7 @@ class AuthController extends Controller
     {
         DB::table('auth_sessions')->where('id', $r->attributes->get('session_id'))->update(['revoked_at' => now()]);
 
-        return response()->json(['data' => true])->withoutCookie('afra_refresh', '/api/auth');
+        return response()->json(['data' => true])->withoutCookie(config('afra.refresh_cookie'), '/api/auth');
     }
 
     public function password(Request $r): JsonResponse

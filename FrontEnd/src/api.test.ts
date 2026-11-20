@@ -3,6 +3,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.resetModules();
 });
+const trainingToken = () =>
+  "header." +
+  btoa(JSON.stringify({ sub: "1", sid: "training-session" })) +
+  ".signature";
 describe("API boundary", () => {
   it("keeps validation field details available to the editor", async () => {
     vi.stubGlobal(
@@ -35,6 +39,17 @@ describe("API boundary", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string, options: RequestInit) => {
+        if (url.endsWith("/auth/csrf"))
+          return new Response(
+            JSON.stringify({
+              data: {
+                csrf_token: "nonce",
+                session_id: "training-session",
+                user_id: 1,
+              },
+            }),
+            { status: 200 },
+          );
         if (url.endsWith("/auth/refresh")) {
           refreshCount++;
           await new Promise((resolve) => setTimeout(resolve, 10));
@@ -57,7 +72,7 @@ describe("API boundary", () => {
       }),
     );
     const { api, setCredentials } = await import("./api");
-    setCredentials("expired", "nonce");
+    setCredentials(trainingToken(), "nonce");
     expect(await Promise.all([api("v1/me"), api("v1/projects")])).toEqual([
       { ok: true },
       { ok: true },
@@ -75,7 +90,7 @@ describe("API boundary", () => {
     );
     vi.stubGlobal("fetch", fetcher);
     const { api, setCredentials } = await import("./api");
-    setCredentials("user-a", "nonce-a");
+    setCredentials(trainingToken(), "nonce-a");
     const pending = api("v1/projects/p/cases", { method: "POST", body: "{}" });
     setCredentials("user-b", "nonce-b");
     release(new Response("{}", { status: 401 }));
@@ -91,6 +106,17 @@ describe("API boundary", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
+        if (url.endsWith("/auth/csrf"))
+          return new Response(
+            JSON.stringify({
+              data: {
+                csrf_token: "nonce",
+                session_id: "training-session",
+                user_id: 1,
+              },
+            }),
+            { status: 200 },
+          );
         if (url.endsWith("/auth/refresh")) {
           started();
           return new Promise<Response>((resolve) => {
@@ -101,7 +127,7 @@ describe("API boundary", () => {
       }),
     );
     const { api, setCredentials } = await import("./api");
-    setCredentials("user-a", "nonce-a");
+    setCredentials(trainingToken(), "nonce-a");
     const pending = api("v1/me");
     await refreshStarted;
     setCredentials("", "");
@@ -114,5 +140,40 @@ describe("API boundary", () => {
       ),
     );
     await expect(pending).rejects.toThrow("session changed");
+  });
+  it("does not rotate or retry with a different cookie subject", async () => {
+    let rotations = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/auth/csrf"))
+          return new Response(
+            JSON.stringify({
+              data: {
+                csrf_token: "other-nonce",
+                session_id: "other-session",
+                user_id: 2,
+              },
+            }),
+            { status: 200 },
+          );
+        if (url.endsWith("/auth/refresh")) rotations++;
+        return new Response("{}", { status: 401 });
+      }),
+    );
+    const { api, setCredentials } = await import("./api");
+    const payload = btoa(JSON.stringify({ sub: "1", sid: "original-session" }));
+    setCredentials("header." + payload + ".signature", "nonce");
+    await expect(api("v1/me")).rejects.toThrow("session changed");
+    expect(rotations).toBe(0);
+  });
+  it("does not automatically resume an unbound request through someone else cookie", async () => {
+    const fetcher = vi.fn(async () => new Response("{}", { status: 401 }));
+    vi.stubGlobal("fetch", fetcher);
+    const { api } = await import("./api");
+    await expect(
+      api("v1/projects/p/cases", { method: "POST", body: "{}" }),
+    ).rejects.toHaveProperty("status", 401);
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });

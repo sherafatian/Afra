@@ -15,6 +15,9 @@ schemas.update({'RoleInput':role,'GroupInput':obj({**role['properties'],'members
 
 account_properties={'name':{'type':'string','maxLength':200},'email':{'type':'string','format':'email','maxLength':250},'active':{'type':'boolean'},'is_system_admin':{'type':'boolean'},'expires_on':{'type':['string','null'],'format':'date','description':'Civil ISO date converted from Solar Hijri input. Access includes the entire selected Tehran day.'},'reason':reason}
 schemas.update({'AccountCreateInput':obj({**account_properties,'password':{'type':'string','minLength':12,'maxLength':128},'must_change_password':{'type':'boolean','default':True}},['name','email','password','reason']),'AccountUpdateInput':obj(account_properties,['reason']),'AccountResetInput':obj({'password':{'type':'string','minLength':12,'maxLength':128},'reason':reason},['password','reason'])})
+requirement_content=obj({'description':{'type':'string','maxLength':20000},'acceptance_criteria':{'type':'string','maxLength':20000},'product_version':{'type':['string','null'],'maxLength':100},'priority':{'enum':['critical','high','medium','low']}},['description','acceptance_criteria','priority'])
+schemas.update({'RequirementInput':obj({'title':{'type':'string','maxLength':250},'content':requirement_content,'reason':{'type':'string','minLength':10,'maxLength':2000}},['title','content','reason']),'RequirementCompatibilityInput':obj({'case_id':uuid,'case_version':{'type':'integer','minimum':1},'requirement_version':{'type':'integer','minimum':1},'reason':{'type':'string','minLength':10,'maxLength':2000}},['case_id','case_version','requirement_version','reason']),'ReasonInput':obj({'reason':{'type':'string','minLength':10,'maxLength':2000}},['reason']),'EndSessionInput':obj({'expected_session_id':uuid},['expected_session_id']),'RefreshInput':obj({'expected_session_id':uuid,'expected_user_id':{'type':'integer','minimum':1}},['expected_session_id','expected_user_id'])})
+schemas['CaseInput']['properties']['content']['properties']['requirements']={'type':'array','maxItems':100,'items':obj({'id':uuid,'version':{'type':'integer','minimum':1}},['id','version'])}
 paths={}
 for route in routes:
  path='/'+route['uri'];params=[{'name':name,'in':'path','required':True,'schema':string}for name in __import__('re').findall(r'{([^}]+)}',path)]
@@ -27,8 +30,14 @@ for route in routes:
   if 'UserController' in route['action']:
    which={'create':'AccountCreateInput','update':'AccountUpdateInput','reset':'AccountResetInput'}.get(action)
    if action in ['update','reset']:operation['parameters'].append({'name':'If-Match','in':'header','required':True,'schema':string,'description':'Current account_version; conflict409 requires reloading.'})
+  if 'RequirementController' in route['action']:which={'save':'RequirementInput','confirm':'RequirementCompatibilityInput','archive':'ReasonInput'}.get(action)
+  if action=='refresh':which='RefreshInput'
+  if 'SessionController' in route['action'] and action=='end':which='EndSessionInput'
+  if path=='/api/ready':operation['security']=[]
+  if path.endswith('/archive') and 'requirements' in path:operation['parameters'].append({'name':'If-Match','in':'header','required':True,'schema':string})
   if which:operation['requestBody']={'required':True,'content':{'application/json':{'schema':{'$ref':'#/components/schemas/'+which}}}}
   if method=='get'and action in ['cases','runs','records','defects','projects','members','index','auditEvents']:operation['parameters'].append({'name':'page','in':'query','schema':{'type':'integer','minimum':1,'default':1}})
+  if 'SessionController' in route['action']:operation['parameters'].append({'name':'X-Afra-Client','in':'header','required':True,'schema':{'const':'spa'}})
   if action=='refresh':operation['parameters'] += [{'name':'Origin','in':'header','required':True,'schema':string},{'name':'X-CSRF-Token','in':'header','required':True,'schema':string}];operation['description']='Requires opaque afra_refresh HttpOnly cookie and allowed Origin/CSRF nonce. Rotates token; replay revokes family.'
   if action=='upload':operation['requestBody']={'required':True,'content':{'multipart/form-data':{'schema':obj({'file':{'type':'string','format':'binary','description':'At most20MiB; MIME allowlist enforced.'},'entity_type':{'enum':['project','case','run_item','defect']},'entity_id':uuid},['file'])}}}
   if action=='download':operation['responses']['200']={'description':'Private encrypted chunks decrypted while streaming as attachment','content':{'application/octet-stream':{'schema':{'type':'string','format':'binary'}}}}
@@ -39,7 +48,7 @@ for route in routes:
   if method=='get' and action=='index' and 'FileController' in route['action']:
    operation['parameters']=[item for item in operation['parameters'] if item['name']!='page']+[{'name':'entity_type','in':'query','required':True,'schema':{'enum':['project','case','run_item','result','defect']}},{'name':'entity_id','in':'query','required':True,'schema':uuid}]
   if method=='get' and (action in ['members','directory','cases'] or ('UserController' in route['action'] and action=='index')):operation['parameters'].append({'name':'q','in':'query','required':action=='directory','schema':{'type':'string','minLength':2 if action=='directory' else 0}})
-  if method=='post' and action in ['create','createProject','createSection','createRun','result','createDefect','upload','retest','saveCase','saveRecord','saveGroup','saveRole']:
+  if method=='post' and action in ['create','createProject','createSection','createRun','result','createDefect','upload','retest','saveCase','saveRecord','saveGroup','saveRole','save']:
    operation['responses']['201']=operation['responses'].pop('200')
   paths.setdefault(path,{})[method]=operation
 spec={'openapi':'3.1.0','info':{'title':'Afra core API (implementation in progress)','version':'0.1.0','description':'Current core routes only. See implementation-status.en.md; no exposed-service/delegation API is implemented. Product target contract is separate. Secondary generic-record schemas remain incomplete in this draft.'},'servers':[{'url':'http://localhost:8000'}],'paths':paths,'components':{'securitySchemes':{'bearerAuth':{'type':'http','scheme':'bearer','bearerFormat':'JWT RS256'}},'schemas':schemas}}

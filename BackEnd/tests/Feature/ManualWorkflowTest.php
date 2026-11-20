@@ -201,8 +201,9 @@ class ManualWorkflowTest extends TestCase
         $login = $this->postJson('/api/auth/login', ['email' => $u->email, 'password' => 'PasswordForTesting123!'])->assertOk();
         $cookie = $login->getCookie('afra_refresh', false)->getValue();
         $csrf = $login->json('data.csrf_token');
-        $this->withCredentials()->withUnencryptedCookie('afra_refresh', $cookie)->withHeader('Origin', 'http://localhost:5173')->postJson('/api/auth/refresh')->assertUnauthorized();
-        $new = $this->withHeader('X-CSRF-Token', $csrf)->postJson('/api/auth/refresh')->assertOk();
+        $binding = ['expected_session_id' => DB::table('auth_sessions')->where('user_id', $u->id)->value('id'), 'expected_user_id' => $u->id];
+        $this->withCredentials()->withUnencryptedCookie('afra_refresh', $cookie)->withHeader('Origin', 'http://localhost:5173')->postJson('/api/auth/refresh', $binding)->assertUnauthorized();
+        $new = $this->withHeader('X-CSRF-Token', $csrf)->postJson('/api/auth/refresh', $binding)->assertOk();
         $this->assertNotSame($cookie, $new->getCookie('afra_refresh', false)->getValue());
         $this->assertDatabaseCount('spent_refresh_tokens', 1);
         $this->withToken($new->json('data.access_token'))->getJson('/api/v1/me')->assertOk();

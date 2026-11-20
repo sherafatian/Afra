@@ -35,6 +35,6 @@ class AssignmentRules
             }
         }
 
-return false;
+        return false;
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\Readiness;
 use App\Services\SigningKeys;
 use Illuminate\Support\Facades\Artisan;
 
@@ -34,4 +35,14 @@ Artisan::command('afra:keys {--config= : OpenSSL configuration file (optional)}'
     $this->info('RSA3072 signing keys generated. Keep private.pem private; restrict its Windows NTFS permissions to your account and authorized application identities.');
 
     return 0;
+});
+
+Artisan::command('afra:check {--production : Validate production configuration as well as dependencies}', function () {
+    $state = app(Readiness::class)->inspect($this->option('production'));
+    foreach ($state['checks'] as $name => $passed) {
+        $passed ? $this->info($name.': OK') : $this->error($name.': FAILED');
+    }
+    $this->warn('This checks infrastructure only. Full release acceptance is still incomplete.');
+
+    return $state['ready_for_requests'] ? 0 : 1;
 });

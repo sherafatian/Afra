@@ -42,8 +42,17 @@ import {
   SettingOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { api, send, setCredentials, ApiError } from "./api";
+import {
+  api,
+  send,
+  setCredentials,
+  ApiError,
+  bootstrapSession,
+  endSession,
+} from "./api";
 import { Evidence } from "./Evidence";
+import { RequirementsPanel } from "./RequirementsPanel";
+import { RequirementPicker } from "./RequirementPicker";
 import { SystemUsers } from "./SystemUsers";
 import { AccessPanel } from "./AccessPanel";
 import { MemberPicker } from "./MemberPicker";
@@ -197,13 +206,12 @@ function Application() {
   };
   const logout = async () => {
     try {
-      await send("auth/logout", {});
-    } catch (e) {
-      error(e);
-    } finally {
+      await endSession();
       setUser(null);
       setCredentials("", "");
       resetWorkspace();
+    } catch (e) {
+      error(e);
     }
   };
   const error = (e: unknown) => {
@@ -234,7 +242,14 @@ function Application() {
   const loadProjects = async () => {
     const generation = workspaceGeneration.current;
     const request = ++projectRequest.current;
-    const d = await api("v1/projects");
+    const d = await api("v1/projects?per_page=100");
+    if (project && !d.data.some((item: any) => item.id === project)) {
+      try {
+        d.data.push(await api(`v1/projects/${project}`));
+      } catch (e) {
+        if (!(e instanceof ApiError) || e.status !== 404) throw e;
+      }
+    }
     if (
       generation !== workspaceGeneration.current ||
       request !== projectRequest.current
@@ -244,6 +259,60 @@ function Application() {
     setProject((p) =>
       d.data.some((item: any) => item.id === p) ? p : d.data[0]?.id || "",
     );
+  };
+  const [authReady, setAuthReady] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    bootstrapSession()
+      .then(async (identity) => {
+        if (!mounted) return;
+        if (identity) {
+          setUser(identity);
+          await loadProjects();
+        }
+      })
+      .catch(() => {
+        /* Invalid sessions return to the sign-in form. */
+      })
+      .finally(() => {
+        if (mounted) setAuthReady(true);
+      });
+    const changed = () => {
+      setUser(null);
+      resetWorkspace();
+      setAuthReady(true);
+    };
+    window.addEventListener("afra-session-changed", changed);
+    return () => {
+      mounted = false;
+      window.removeEventListener("afra-session-changed", changed);
+    };
+  }, []);
+  const searchProjects = async (query: string) => {
+    const generation = workspaceGeneration.current;
+    const request = ++projectRequest.current;
+    try {
+      const data = await api(
+        `v1/projects?per_page=100&q=${encodeURIComponent(query)}`,
+      );
+      if (
+        generation !== workspaceGeneration.current ||
+        request !== projectRequest.current
+      )
+        return;
+      setProjects((previous) => {
+        const selected = previous.find((item) => item.id === project);
+        return selected && !data.data.some((item: any) => item.id === project)
+          ? [selected, ...data.data]
+          : data.data;
+      });
+    } catch (e) {
+      if (
+        generation === workspaceGeneration.current &&
+        request === projectRequest.current
+      )
+        error(e);
+    }
   };
   const login = async (values: any) => {
     setBusy(true);
@@ -284,7 +353,7 @@ function Application() {
     return () => {
       current = false;
     };
-  }, [project, user]);
+  }, [project, user, tab]);
   const load = async () => {
     const request = ++dataRequest.current;
     const generation = workspaceGeneration.current;
@@ -292,7 +361,7 @@ function Application() {
       request === dataRequest.current &&
       generation === workspaceGeneration.current;
     if (!project || !user || user.must_change_password) return;
-    if (tab === "users") {
+    if (tab === "users" || tab === "requirements") {
       setRows([]);
       setBusy(false);
       return;
@@ -636,8 +705,15 @@ function Application() {
                         error(e);
                       }
                     } else {
-                      reviewForm.resetFields();
-                      setReviewTarget({ record: row, decision: key });
+                      const generation = workspaceGeneration.current;
+                      try {
+                        const record = await api(base + "/cases/" + row.id);
+                        if (generation !== workspaceGeneration.current) return;
+                        reviewForm.resetFields();
+                        setReviewTarget({ record, decision: key });
+                      } catch (e) {
+                        error(e);
+                      }
                     }
                   },
                 }}
@@ -739,7 +815,13 @@ function Application() {
               >
                 <Input.Password dir="ltr" autoComplete="current-password" />
               </Form.Item>
-              <Button type="primary" htmlType="submit" block loading={busy}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
+                disabled={!authReady}
+                loading={busy || !authReady}
+              >
                 {l("ورود به سامانه", "Sign in")}
               </Button>
             </Form>
@@ -794,6 +876,9 @@ function Application() {
                   aria-label="Menu"
                 />
                 <Select
+                  showSearch
+                  filterOption={false}
+                  onSearch={searchProjects}
                   aria-label={l("پروژه", "Project")}
                   value={project || undefined}
                   placeholder={l("انتخاب پروژه", "Select project")}
@@ -897,6 +982,7 @@ function Application() {
                     "services",
                     "execution",
                     "users",
+                    "requirements",
                   ].includes(tab) && (
                     <Button
                       type="primary"
@@ -1104,6 +1190,14 @@ function Application() {
                         )}
                       />
                     </Card>
+                  ) : tab === "requirements" ? (
+                    <RequirementsPanel
+                      key={project}
+                      project={project}
+                      language={lang}
+                      permissions={capabilities}
+                      userId={user.id}
+                    />
                   ) : tab === "users" ? (
                     <AccessPanel
                       key={project}
@@ -1245,6 +1339,18 @@ function Application() {
                 <Tag color="orange">
                   {l("نسخه", "Revision")} {reviewTarget.record.version}
                 </Tag>
+                {(reviewTarget.record.requirement_bindings || []).map(
+                  (binding: any) => (
+                    <Tag
+                      key={binding.id}
+                      color={binding.compatible ? "blue" : "red"}
+                    >
+                      {binding.title} · v{binding.version}
+                      {!binding.compatible &&
+                        l(" — نیازمند بررسی تغییر", " — stale coverage")}
+                    </Tag>
+                  ),
+                )}
                 {reviewContent.preconditions && (
                   <Card
                     size="small"
@@ -1816,6 +1922,15 @@ function Application() {
                       )}
                     >
                       <Input.TextArea rows={2} />
+                    </Form.Item>
+                    <Form.Item
+                      name={["content", "requirements"]}
+                      label={l(
+                        "نیازمندی‌های مرتبط و نسخه آن‌ها",
+                        "Linked requirement revisions",
+                      )}
+                    >
+                      <RequirementPicker project={project} language={lang} />
                     </Form.Item>
                     <Typography.Title level={5}>
                       {l("چک‌لیست آزمون", "Test checklist")}

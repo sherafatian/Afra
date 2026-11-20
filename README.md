@@ -39,3 +39,5 @@ Afra is an orange-themed manual QA/test management product. This repository now 
 Start with the setup guide linked above.10000–100000 means registered accounts, not concurrent users. The target supports multi-node deployment using shared PostgreSQL/Redis/keys and database attachments up to20MiB; production packaging/security/load acceptance remains work in progress. No organization server has been accessed.
 
 The guides contain QA principles and test case design in chapter1, and step-by-step application/target-workflow instructions in chapter2. Word uses embedded Vazir for Persian, Cambria for Latin, an Afra cover, running header/footer and a native TOC field. In Word, update the entire TOC to calculate page numbers. PDF generation on hosts without Cambria may use a compatible fallback; the Word font declaration remains Cambria.
+
+بررسی آمادگی زیرساخت: `php artisan afra:check --production`. این فرمان جای پذیرش کامل محصول نیست. [موانع انتشار](docs/release-acceptance.fa.md) · [Release blockers](docs/release-acceptance.en.md) · [استقرار بدون Docker](deploy/README.fa.md) · [Native deployment templates](deploy/README.en.md).

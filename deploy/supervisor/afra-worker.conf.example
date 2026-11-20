@@ -1,0 +1,17 @@
+; TEMPLATE: configure queue retry_after > worker timeout (e.g.150 >90 seconds).
+; Enable only after configuring the shared database/Redis queue and permissions.
+[program:afra-worker]
+command=/usr/bin/php8.4 /opt/afra/BackEnd/artisan queue:work --sleep=3 --tries=3 --timeout=90 --max-time=3600
+directory=/opt/afra/BackEnd
+user=www-data
+numprocs=2
+process_name=%(program_name)s_%(process_num)02d
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=150
+redirect_stderr=true
+stdout_logfile=/var/log/afra/worker.log
+stdout_logfile_maxbytes=20MB
+stdout_logfile_backups=10

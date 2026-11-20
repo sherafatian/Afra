@@ -31,7 +31,7 @@ class UserController extends Controller
             $allowed = [...$allowed, 'password', 'must_change_password'];
         }
         abort_if(array_diff(array_keys($request->all()), $allowed), 422, 'Unsupported account fields.');
-        if ($request->has('email')) {
+        if (is_string($request->input('email'))) {
             $request->merge(['email' => mb_strtolower(trim((string) $request->input('email')))]);
         }
         $values = $request->validate([

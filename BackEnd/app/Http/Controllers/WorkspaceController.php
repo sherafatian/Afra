@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Access;
 use App\Services\AssignmentRules;
+use App\Services\RequirementCoverage;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,7 @@ class WorkspaceController extends Controller
 
     public function projects(Request $r): JsonResponse
     {
+        $v = $r->validate(['q' => 'nullable|string|max:200', 'per_page' => 'sometimes|integer|min:1|max:100']);
         $q = DB::table('projects');
         if (! $r->user()->is_system_admin) {
             $members = DB::table('project_members as m')->select('m.project_id')->where('m.user_id', $r->user()->id)
@@ -71,7 +73,16 @@ class WorkspaceController extends Controller
             $q->whereIn('id', $members);
         }
 
-        return $this->reply($q->orderBy('name')->paginate(25));
+        if (! empty($v['q'])) {
+            $q->where('name', 'ilike', '%'.$v['q'].'%');
+        }
+
+        return $this->reply($q->orderBy('name')->paginate($v['per_page'] ?? 25));
+    }
+
+    public function projectDetail(Request $r, string $project): JsonResponse
+    {
+        return $this->reply($this->access($r, $project));
     }
 
     public function createProject(Request $r): JsonResponse
@@ -125,6 +136,7 @@ class WorkspaceController extends Controller
 
     public function cases(Request $r, string $project): JsonResponse
     {
+        $r->validate(['q' => 'nullable|string|max:200', 'section_id' => 'nullable|uuid', 'per_page' => 'sometimes|integer|min:1|max:100']);
         $this->access($r, $project);
         $q = app(Access::class)->scope(DB::table('test_cases')->where('project_id', $project), $r, $project);
         if ($r->filled('q')) {
@@ -141,6 +153,7 @@ class WorkspaceController extends Controller
         $this->access($r, $project);
         $c = $this->record('test_cases', $case, $project);
         $c->content = json_decode($c->content, true);
+        $c->requirement_bindings = app(RequirementCoverage::class)->bindings($c, false);
         app(Access::class)->check($r, $project, 'view', $c->section_id);
         $c->revisions = DB::table('case_revisions')->where('test_case_id', $case)->orderByDesc('version')->get();
 
@@ -149,7 +162,7 @@ class WorkspaceController extends Controller
 
     private function caseInput(Request $r, string $project): array
     {
-        $v = $r->validate(['title' => 'required|string|max:250', 'section_id' => 'nullable|uuid', 'assignee_id' => 'nullable|integer', 'substitute_id' => 'nullable|integer', 'assignment_version' => 'sometimes|integer|min:1', 'priority' => 'required|in:critical,high,medium,low', 'content' => 'required|array:preconditions,expected,checklist,tags,type,estimate', 'content.preconditions' => 'nullable|string|max:10000', 'content.expected' => 'nullable|string|max:10000', 'content.type' => 'nullable|in:functional,regression,smoke,security,performance', 'content.estimate' => 'nullable|integer|min:1|max:1440', 'content.tags' => 'nullable|array|max:30', 'content.tags.*' => 'string|max:60', 'content.checklist' => 'required|array|min:1|max:200', 'content.checklist.*' => 'array:text,expected,required', 'content.checklist.*.text' => 'required|string|max:3000', 'content.checklist.*.expected' => 'required|string|max:3000', 'content.checklist.*.required' => 'required|boolean']);
+        $v = $r->validate(['title' => 'required|string|max:250', 'section_id' => 'nullable|uuid', 'assignee_id' => 'nullable|integer', 'substitute_id' => 'nullable|integer', 'assignment_version' => 'sometimes|integer|min:1', 'priority' => 'required|in:critical,high,medium,low', 'content' => 'required|array:preconditions,expected,checklist,tags,type,estimate,requirements', 'content.requirements' => 'sometimes|array|max:100', 'content.requirements.*' => 'array:id,version', 'content.requirements.*.id' => 'required|uuid|distinct', 'content.requirements.*.version' => 'required|integer|min:1', 'content.preconditions' => 'nullable|string|max:10000', 'content.expected' => 'nullable|string|max:10000', 'content.type' => 'nullable|in:functional,regression,smoke,security,performance', 'content.estimate' => 'nullable|integer|min:1|max:1440', 'content.tags' => 'nullable|array|max:30', 'content.tags.*' => 'string|max:60', 'content.checklist' => 'required|array|min:1|max:200', 'content.checklist.*' => 'array:text,expected,required', 'content.checklist.*.text' => 'required|string|max:3000', 'content.checklist.*.expected' => 'required|string|max:3000', 'content.checklist.*.required' => 'required|boolean']);
         if (! empty($v['section_id'])) {
             $this->record('sections', $v['section_id'], $project);
         }
@@ -202,6 +215,7 @@ class WorkspaceController extends Controller
             } else {
                 DB::table('test_cases')->insert($row + ['id' => $id, 'project_id' => $project, 'created_at' => now()]);
             }
+            app(RequirementCoverage::class)->link($r, $project, $id, $version, $v['content']['requirements'] ?? []);
             $snapshot = $v + ['section_id' => $section, 'assignee_id' => $old->assignee_id ?? null, 'substitute_id' => $old->substitute_id ?? null];
             $snapshot['assignment_version'] = $assignmentVersion;
             DB::table('case_revisions')->insert(['test_case_id' => $id, 'version' => $version, 'author_id' => $r->user()->id, 'snapshot' => json_encode($snapshot), 'created_at' => now(), 'updated_at' => now()]);
@@ -223,10 +237,16 @@ class WorkspaceController extends Controller
             $rev = DB::table('case_revisions')->where('test_case_id', $case)->where('version', $c->version)->first();
             if ($v['decision'] === 'submit') {
                 abort_unless($c->status === 'draft', 409);
+                $bindings = app(RequirementCoverage::class)->bindings($c);
+                DB::table('case_revisions')->where('id', $rev->id)->update(['review_requirements' => json_encode($bindings)]);
                 $status = 'pending';
             } else {
                 abort_unless($c->status === 'pending', 409);
                 abort_if($rev->author_id === $r->user()->id, 409, 'The author cannot review their own revision.');
+                if ($v['decision'] === 'approve') {
+                    $bindings = app(RequirementCoverage::class)->bindings($c);
+                    abort_unless($bindings === json_decode($rev->review_requirements ?? '[]', true), 409, 'Requirement scope changed after review was requested. Return to draft and request review again.');
+                }
                 $status = $v['decision'] === 'approve' ? 'approved' : 'draft';
             }DB::table('test_cases')->where('id', $case)->update(['status' => $status, 'updated_at' => now()]);
             DB::table('case_revisions')->where('id', $rev->id)->update(['status' => $status, 'reviewer_id' => $v['decision'] === 'submit' ? null : $r->user()->id, 'reason' => $v['reason'] ?? null, 'updated_at' => now()]);
@@ -240,6 +260,9 @@ class WorkspaceController extends Controller
     {
         $this->access($r, $project);
         $this->kind($kind);
+        if ($kind === 'requirements') {
+            return app(RequirementController::class)->index($r, $project);
+        }
 
         return $this->reply(DB::table('project_records')->where('project_id', $project)->where('kind', $kind)->orderByDesc('updated_at')->paginate(25));
     }
@@ -252,6 +275,9 @@ class WorkspaceController extends Controller
     public function saveRecord(Request $r, string $project, string $kind, ?string $record = null): JsonResponse
     {
         $this->kind($kind);
+        if ($kind === 'requirements') {
+            return app(RequirementController::class)->save($r, $project, $record);
+        }
         $prefix = match ($kind) {
             'shared-steps' => 'shared','configuration-profiles' => 'profiles','custom-fields' => 'fields',default => $kind
         };
@@ -291,12 +317,14 @@ class WorkspaceController extends Controller
         $id = (string) Str::uuid();
         DB::transaction(function () use ($r, $project, $v, $id) {
             DB::table('test_runs')->insert(['id' => $id, 'project_id' => $project, 'title' => $v['title'], 'created_by' => $r->user()->id, 'created_at' => now(), 'updated_at' => now()]);
+            $locked = DB::table('test_cases')->where('project_id', $project)->whereIn('id', array_column($v['cases'], 'id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             foreach ($v['cases'] as $entry) {
-                $c = DB::table('test_cases')->where('project_id', $project)->where('id', $entry['id'])->lockForUpdate()->first();
+                $c = $locked->get($entry['id']);
                 abort_unless($c, 404);
                 $this->access($r, $project, 'runs.create', $c->section_id);
                 abort_unless($c->status === 'approved' && $c->version === $entry['version'], 409, 'Only the current approved revision can enter a run. Refresh the selection.');
-                DB::table('run_items')->insert(['id' => (string) Str::uuid(), 'test_run_id' => $id, 'test_case_id' => $c->id, 'section_id' => $c->section_id, 'snapshot' => json_encode(['case_id' => $c->id, 'version' => $c->version, 'title' => $c->title, 'assignment_version' => $c->assignment_version, 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'content' => json_decode($c->content, true)]), 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'created_at' => now(), 'updated_at' => now()]);
+                $bindings = app(RequirementCoverage::class)->bindings($c);
+                DB::table('run_items')->insert(['requirement_bindings' => json_encode($bindings), 'id' => (string) Str::uuid(), 'test_run_id' => $id, 'test_case_id' => $c->id, 'section_id' => $c->section_id, 'snapshot' => json_encode(['case_id' => $c->id, 'version' => $c->version, 'title' => $c->title, 'assignment_version' => $c->assignment_version, 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'requirements' => $bindings, 'content' => json_decode($c->content, true)]), 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'created_at' => now(), 'updated_at' => now()]);
             }$this->audit($r, $project, 'runs.create', $id);
         });
 
@@ -468,7 +496,7 @@ class WorkspaceController extends Controller
         $item = (string) Str::uuid();
         DB::transaction(function () use ($r, $project, $defect, $d, $source, $run, $item) {
             DB::table('test_runs')->insert(['id' => $run, 'project_id' => $project, 'title' => 'Retest: '.$d->title, 'created_by' => $r->user()->id, 'created_at' => now(), 'updated_at' => now()]);
-            DB::table('run_items')->insert(['id' => $item, 'test_run_id' => $run, 'test_case_id' => $source->test_case_id, 'section_id' => $source->section_id, 'snapshot' => $source->snapshot, 'assignee_id' => $r->user()->id, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('run_items')->insert(['id' => $item, 'test_run_id' => $run, 'test_case_id' => $source->test_case_id, 'section_id' => $source->section_id, 'snapshot' => $source->snapshot, 'requirement_bindings' => $source->requirement_bindings, 'assignee_id' => $r->user()->id, 'created_at' => now(), 'updated_at' => now()]);
             DB::table('retest_links')->insert(['id' => (string) Str::uuid(), 'defect_id' => $defect, 'run_item_id' => $item, 'created_at' => now(), 'updated_at' => now()]);
             $this->audit($r, $project, 'defects.retest', $defect, ['run_id' => $run, 'item_id' => $item]);
         });

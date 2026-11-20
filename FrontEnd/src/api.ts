@@ -3,11 +3,131 @@ let csrf = "";
 let identityVersion = 0;
 let renewal: { version: number; promise: Promise<void> } | null = null;
 
+const channel =
+  typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
+    ? new BroadcastChannel("afra.auth")
+    : null;
+if (channel)
+  channel.onmessage = () => {
+    identityVersion++;
+    token = "";
+    csrf = "";
+    renewal = null;
+    window.dispatchEvent(new Event("afra-session-changed"));
+  };
+function claims(): { sub?: string; sid?: string; token_use?: string } | null {
+  try {
+    return JSON.parse(
+      atob(token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/")),
+    );
+  } catch {
+    return null;
+  }
+}
+async function sessionLock<T>(action: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.locks)
+    return navigator.locks.request("afra.auth", action);
+  return action();
+}
+async function browserSession(version: number) {
+  const expected = claims();
+  const response = await fetch("/api/auth/csrf", {
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "X-Afra-Client": "spa",
+      ...(expected?.sid ? { "X-Afra-Session": expected.sid } : {}),
+    },
+  });
+  requireIdentity(version);
+  if (!response.ok)
+    throw new ApiError(
+      response.status,
+      "Browser session changed. Please sign in again.",
+    );
+  const data = (await response.json()).data;
+  requireIdentity(version);
+  if (data && expected?.sub && String(data.user_id) !== expected.sub)
+    throw new ApiError(401, "Your session changed. Please sign in again.");
+  return data as {
+    csrf_token: string;
+    session_id: string;
+    user_id: number;
+  } | null;
+}
+async function rotate(
+  version: number,
+  initial?: Awaited<ReturnType<typeof browserSession>>,
+) {
+  const session = initial ?? (await browserSession(version));
+  if (!session) throw new ApiError(401, "Please sign in again.");
+  const response = await fetch("/api/auth/refresh", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-Token": session.csrf_token,
+    },
+    body: JSON.stringify({
+      expected_session_id: session.session_id,
+      expected_user_id: session.user_id,
+    }),
+  });
+  requireIdentity(version);
+  if (!response.ok) throw new ApiError(401, "Please sign in again.");
+  const data = (await response.json()).data;
+  requireIdentity(version);
+  token = data.access_token;
+  csrf = data.csrf_token;
+  return data.user;
+}
+export async function bootstrapSession() {
+  const version = identityVersion;
+  return sessionLock(async () => {
+    const session = await browserSession(version);
+    if (!session) return null;
+    // The browser lock covers both nonce issuance and refresh rotation across tabs.
+    return rotate(version, session);
+  });
+}
+export async function endSession() {
+  if (claims()?.token_use === "password_change") {
+    try {
+      await send("auth/logout", {});
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 401) throw error;
+    }
+    return;
+  }
+  const version = identityVersion;
+  await sessionLock(async () => {
+    const session = await browserSession(version);
+    if (!session) return;
+    const response = await fetch("/api/auth/end-session", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Afra-Client": "spa",
+        "X-CSRF-Token": session.csrf_token,
+      },
+      body: JSON.stringify({ expected_session_id: session.session_id }),
+    });
+    requireIdentity(version);
+    if (!response.ok)
+      throw new ApiError(
+        response.status,
+        "Could not revoke browser session. Please try again.",
+      );
+  });
+}
+
 export function setCredentials(accessToken: string, csrfToken: string) {
   identityVersion++;
   token = accessToken;
   csrf = csrfToken;
   renewal = null;
+  channel?.postMessage({ type: "identity-changed" });
 }
 
 export class ApiError extends Error {
@@ -27,19 +147,11 @@ function requireIdentity(version: number) {
 
 async function refresh(version: number) {
   requireIdentity(version);
+  const identity = claims();
+  if (!identity?.sid || !identity.sub)
+    throw new ApiError(401, "Please sign in again.");
   if (!renewal || renewal.version !== version) {
-    const pending = fetch("/api/auth/refresh", {
-      method: "POST",
-      credentials: "include",
-      headers: { "X-CSRF-Token": csrf },
-    }).then(async (response) => {
-      requireIdentity(version);
-      if (!response.ok) throw new ApiError(401, "Please sign in again.");
-      const data = (await response.json()).data;
-      requireIdentity(version);
-      token = data.access_token;
-      csrf = data.csrf_token;
-    });
+    const pending = sessionLock(() => rotate(version)).then(() => undefined);
     const entry = {
       version,
       promise: pending.finally(() => {
@@ -71,7 +183,7 @@ export async function api<T = any>(
     },
   });
   requireIdentity(version);
-  if (response.status === 401 && retry && !path.startsWith("auth/")) {
+  if (response.status === 401 && retry && token && !path.startsWith("auth/")) {
     await refresh(version);
     return api(path, options, false);
   }
@@ -108,7 +220,7 @@ export async function download(path: string): Promise<Blob> {
     });
   let response = await request();
   requireIdentity(version);
-  if (response.status === 401) {
+  if (response.status === 401 && token) {
     await refresh(version);
     response = await request();
     requireIdentity(version);

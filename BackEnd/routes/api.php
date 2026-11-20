@@ -4,15 +4,21 @@ use App\Http\Controllers\AccessController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FileController;
+use App\Http\Controllers\ReadinessController;
+use App\Http\Controllers\RequirementController;
+use App\Http\Controllers\SessionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceController as W;
 use Illuminate\Support\Facades\Route;
 
 $uuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
-foreach (['case', 'run', 'item', 'file', 'record', 'group', 'role'] as $parameter) {
+foreach (['case', 'run', 'item', 'file', 'record', 'group', 'role', 'requirement'] as $parameter) {
     Route::pattern($parameter, $uuid);
 }
 Route::pattern('user', '[1-9][0-9]{0,17}');
+Route::get('ready', ReadinessController::class)->middleware('throttle:afra-probe');
+Route::get('auth/csrf', [SessionController::class, 'csrf'])->middleware('throttle:afra-refresh');
+Route::post('auth/end-session', [SessionController::class, 'end'])->middleware('throttle:afra-refresh');
 Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:afra-login');
 Route::post('auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:afra-refresh');
 Route::middleware(['afra.auth', 'throttle:afra-api'])->group(function () {
@@ -28,6 +34,13 @@ Route::middleware(['afra.auth', 'throttle:afra-api'])->group(function () {
         Route::get('projects', [W::class, 'projects']);
         Route::post('projects', [W::class, 'createProject']);
         Route::prefix('projects/{project}')->whereUuid('project')->group(function () {
+            Route::get('/', [W::class, 'projectDetail']);
+            Route::get('requirements', [RequirementController::class, 'index']);
+            Route::post('requirements', [RequirementController::class, 'save']);
+            Route::get('requirements/{requirement}', [RequirementController::class, 'detail']);
+            Route::put('requirements/{requirement}', [RequirementController::class, 'save']);
+            Route::post('requirements/{requirement}/archive', [RequirementController::class, 'archive']);
+            Route::post('requirements/{requirement}/compatibility', [RequirementController::class, 'confirm']);
             Route::get('files', [FileController::class, 'index']);
             Route::post('files', [FileController::class, 'upload']);
             Route::get('files/{file}', [FileController::class, 'download']);

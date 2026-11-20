@@ -31,7 +31,7 @@ class EvidenceContext
             $row = $query->first();
         }
         abort_unless($row, 404);
-        app(Access::class)->check($request,$project,$action,$row->section_id);
+        app(Access::class)->check($request, $project, $action, $row->section_id);
 
         return $row->section_id;
     }
