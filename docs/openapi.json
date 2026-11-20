@@ -13,7 +13,7 @@
   "paths": {
     "/api/auth/login": {
       "post": {
-        "operationId": "loginPost",
+        "operationId": "AuthController_login_post",
         "summary": "login",
         "security": [],
         "parameters": [],
@@ -68,7 +68,7 @@
     },
     "/api/auth/logout": {
       "post": {
-        "operationId": "logoutPost",
+        "operationId": "AuthController_logout_post",
         "summary": "logout",
         "security": [
           {
@@ -117,7 +117,7 @@
     },
     "/api/auth/refresh": {
       "post": {
-        "operationId": "refreshPost",
+        "operationId": "AuthController_refresh_post",
         "summary": "refresh",
         "security": [],
         "parameters": [
@@ -180,7 +180,7 @@
     },
     "/api/v1/me": {
       "get": {
-        "operationId": "meGet",
+        "operationId": "WorkspaceController_me_get",
         "summary": "me",
         "security": [
           {
@@ -229,7 +229,7 @@
     },
     "/api/v1/me/password": {
       "post": {
-        "operationId": "passwordPost",
+        "operationId": "AuthController_password_post",
         "summary": "password",
         "security": [
           {
@@ -278,7 +278,7 @@
     },
     "/api/v1/me/profile": {
       "patch": {
-        "operationId": "profilePatch",
+        "operationId": "WorkspaceController_profile_patch",
         "summary": "profile",
         "security": [
           {
@@ -327,7 +327,7 @@
     },
     "/api/v1/projects": {
       "get": {
-        "operationId": "projectsGet",
+        "operationId": "WorkspaceController_projects_get",
         "summary": "projects",
         "security": [
           {
@@ -384,7 +384,7 @@
         }
       },
       "post": {
-        "operationId": "createProjectPost",
+        "operationId": "WorkspaceController_createProject_post",
         "summary": "createProject",
         "security": [
           {
@@ -393,16 +393,6 @@
         ],
         "parameters": [],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -427,13 +417,23 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/projects/{project}/audit": {
       "get": {
-        "operationId": "auditEventsGet",
+        "operationId": "WorkspaceController_auditEvents_get",
         "summary": "auditEvents",
         "security": [
           {
@@ -500,7 +500,7 @@
     },
     "/api/v1/projects/{project}/cases": {
       "get": {
-        "operationId": "casesGet",
+        "operationId": "WorkspaceController_cases_get",
         "summary": "cases",
         "security": [
           {
@@ -523,6 +523,15 @@
               "type": "integer",
               "minimum": 1,
               "default": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 0
             }
           }
         ],
@@ -565,7 +574,7 @@
         }
       },
       "post": {
-        "operationId": "saveCasePost",
+        "operationId": "WorkspaceController_saveCase_post",
         "summary": "saveCase",
         "security": [
           {
@@ -583,16 +592,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -617,6 +616,16 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -633,7 +642,7 @@
     },
     "/api/v1/projects/{project}/cases/{case}": {
       "get": {
-        "operationId": "caseDetailGet",
+        "operationId": "WorkspaceController_caseDetail_get",
         "summary": "caseDetail",
         "security": [
           {
@@ -697,7 +706,7 @@
         }
       },
       "put": {
-        "operationId": "saveCasePut",
+        "operationId": "WorkspaceController_saveCase_put",
         "summary": "saveCase",
         "security": [
           {
@@ -780,9 +789,94 @@
         }
       }
     },
+    "/api/v1/projects/{project}/cases/{case}/assignment": {
+      "post": {
+        "operationId": "AssignmentController_update_post",
+        "summary": "update",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "case",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current assignment_version, independent of content revision."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project}/cases/{case}/review": {
       "post": {
-        "operationId": "reviewPost",
+        "operationId": "WorkspaceController_review_post",
         "summary": "review",
         "security": [
           {
@@ -853,12 +947,13 @@
               }
             }
           }
-        }
+        },
+        "description": "Exact case revision version required for submit/approve/reject. Independent approval only. Rejection requires a reason."
       }
     },
     "/api/v1/projects/{project}/dashboard": {
       "get": {
-        "operationId": "dashboardGet",
+        "operationId": "WorkspaceController_dashboard_get",
         "summary": "dashboard",
         "security": [
           {
@@ -916,7 +1011,7 @@
     },
     "/api/v1/projects/{project}/defects": {
       "get": {
-        "operationId": "defectsGet",
+        "operationId": "WorkspaceController_defects_get",
         "summary": "defects",
         "security": [
           {
@@ -981,7 +1076,7 @@
         }
       },
       "post": {
-        "operationId": "createDefectPost",
+        "operationId": "WorkspaceController_createDefect_post",
         "summary": "createDefect",
         "security": [
           {
@@ -999,16 +1094,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -1033,6 +1118,16 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -1049,7 +1144,7 @@
     },
     "/api/v1/projects/{project}/defects/{defect}/retest": {
       "post": {
-        "operationId": "retestPost",
+        "operationId": "WorkspaceController_retest_post",
         "summary": "retest",
         "security": [
           {
@@ -1075,16 +1170,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -1109,13 +1194,23 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/projects/{project}/defects/{defect}/transition": {
       "post": {
-        "operationId": "transitionDefectPost",
+        "operationId": "WorkspaceController_transitionDefect_post",
         "summary": "transitionDefect",
         "security": [
           {
@@ -1189,9 +1284,76 @@
         }
       }
     },
+    "/api/v1/projects/{project}/directory": {
+      "get": {
+        "operationId": "AccessController_directory_get",
+        "summary": "directory",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project}/files": {
       "get": {
-        "operationId": "indexGet",
+        "operationId": "FileController_index_get",
         "summary": "index",
         "security": [
           {
@@ -1208,12 +1370,26 @@
             }
           },
           {
-            "name": "page",
+            "name": "entity_type",
             "in": "query",
+            "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
+              "enum": [
+                "project",
+                "case",
+                "run_item",
+                "result",
+                "defect"
+              ]
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -1256,7 +1432,7 @@
         }
       },
       "post": {
-        "operationId": "uploadPost",
+        "operationId": "FileController_upload_post",
         "summary": "upload",
         "security": [
           {
@@ -1274,16 +1450,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -1308,6 +1474,16 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -1319,7 +1495,20 @@
                 "properties": {
                   "file": {
                     "type": "string",
-                    "format": "binary"
+                    "format": "binary",
+                    "description": "At most20MiB; MIME allowlist enforced."
+                  },
+                  "entity_type": {
+                    "enum": [
+                      "project",
+                      "case",
+                      "run_item",
+                      "defect"
+                    ]
+                  },
+                  "entity_id": {
+                    "type": "string",
+                    "format": "uuid"
                   }
                 },
                 "required": [
@@ -1333,7 +1522,7 @@
     },
     "/api/v1/projects/{project}/files/{file}": {
       "get": {
-        "operationId": "downloadGet",
+        "operationId": "FileController_download_get",
         "summary": "download",
         "security": [
           {
@@ -1400,7 +1589,7 @@
     },
     "/api/v1/projects/{project}/groups": {
       "get": {
-        "operationId": "groupsGet",
+        "operationId": "AccessController_groups_get",
         "summary": "groups",
         "security": [
           {
@@ -1456,8 +1645,161 @@
         }
       },
       "post": {
-        "operationId": "saveGroupPost",
+        "operationId": "AccessController_saveGroup_post",
         "summary": "saveGroup",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}/groups/{group}": {
+      "put": {
+        "operationId": "AccessController_saveGroup_put",
+        "summary": "saveGroup",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "group",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current optimistic version, e.g. 1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}/me/capabilities": {
+      "get": {
+        "operationId": "AccessController_capabilities_get",
+        "summary": "capabilities",
         "security": [
           {
             "bearerAuth": []
@@ -1512,9 +1854,77 @@
         }
       }
     },
+    "/api/v1/projects/{project}/member-options": {
+      "post": {
+        "operationId": "AccessController_memberOptions_post",
+        "summary": "memberOptions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberOptionsInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project}/members": {
       "get": {
-        "operationId": "membersGet",
+        "operationId": "WorkspaceController_members_get",
         "summary": "members",
         "security": [
           {
@@ -1537,6 +1947,15 @@
               "type": "integer",
               "minimum": 1,
               "default": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 0
             }
           }
         ],
@@ -1579,8 +1998,85 @@
         }
       },
       "post": {
-        "operationId": "saveMemberPost",
-        "summary": "saveMember",
+        "operationId": "AccessController_member_post",
+        "summary": "member",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required current membership_version when updating an existing membership."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}/permissions": {
+      "get": {
+        "operationId": "AccessController_catalog_get",
+        "summary": "catalog",
         "security": [
           {
             "bearerAuth": []
@@ -1637,7 +2133,7 @@
     },
     "/api/v1/projects/{project}/records/{kind}": {
       "get": {
-        "operationId": "recordsGet",
+        "operationId": "WorkspaceController_records_get",
         "summary": "records",
         "security": [
           {
@@ -1710,7 +2206,7 @@
         }
       },
       "post": {
-        "operationId": "saveRecordPost",
+        "operationId": "WorkspaceController_saveRecord_post",
         "summary": "saveRecord",
         "security": [
           {
@@ -1736,16 +2232,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -1770,13 +2256,23 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/projects/{project}/records/{kind}/{record}": {
       "put": {
-        "operationId": "saveRecordPut",
+        "operationId": "WorkspaceController_saveRecord_put",
         "summary": "saveRecord",
         "security": [
           {
@@ -1857,9 +2353,218 @@
         }
       }
     },
+    "/api/v1/projects/{project}/roles": {
+      "get": {
+        "operationId": "AccessController_roles_get",
+        "summary": "roles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "post": {
+        "operationId": "AccessController_saveRole_post",
+        "summary": "saveRole",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}/roles/{role}": {
+      "put": {
+        "operationId": "AccessController_saveRole_put",
+        "summary": "saveRole",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current optimistic version, e.g. 1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleInput"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project}/runs": {
       "get": {
-        "operationId": "runsGet",
+        "operationId": "WorkspaceController_runs_get",
         "summary": "runs",
         "security": [
           {
@@ -1924,7 +2629,7 @@
         }
       },
       "post": {
-        "operationId": "createRunPost",
+        "operationId": "WorkspaceController_createRun_post",
         "summary": "createRun",
         "security": [
           {
@@ -1942,16 +2647,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -1976,6 +2671,16 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -1992,7 +2697,7 @@
     },
     "/api/v1/projects/{project}/runs/{run}": {
       "get": {
-        "operationId": "runDetailGet",
+        "operationId": "WorkspaceController_runDetail_get",
         "summary": "runDetail",
         "security": [
           {
@@ -2058,7 +2763,7 @@
     },
     "/api/v1/projects/{project}/runs/{run}/items/{item}/results": {
       "post": {
-        "operationId": "resultPost",
+        "operationId": "WorkspaceController_result_post",
         "summary": "result",
         "security": [
           {
@@ -2084,6 +2789,130 @@
           },
           {
             "name": "item",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResultInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project}/section-access": {
+      "get": {
+        "operationId": "AccessController_sectionRules_get",
+        "summary": "sectionRules",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or revoked authentication"
+          },
+          "403": {
+            "description": "Action denied"
+          },
+          "404": {
+            "description": "Not found or outside visible project"
+          },
+          "409": {
+            "description": "Version, review, idempotency or workflow conflict"
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      },
+      "put": {
+        "operationId": "AccessController_saveSectionRules_put",
+        "summary": "saveSectionRules",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project",
             "in": "path",
             "required": true,
             "schema": {
@@ -2133,16 +2962,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResultInput"
+                "$ref": "#/components/schemas/SectionRulesInput"
               }
             }
           }
-        }
+        },
+        "description": "Existing rules require their current version inside each body rule. No If-Match header. Inherit preserves a versioned tombstone."
       }
     },
     "/api/v1/projects/{project}/sections": {
       "get": {
-        "operationId": "sectionsGet",
+        "operationId": "WorkspaceController_sections_get",
         "summary": "sections",
         "security": [
           {
@@ -2198,7 +3028,7 @@
         }
       },
       "post": {
-        "operationId": "createSectionPost",
+        "operationId": "WorkspaceController_createSection_post",
         "summary": "createSection",
         "security": [
           {
@@ -2216,16 +3046,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -2250,13 +3070,23 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/system/users": {
       "get": {
-        "operationId": "indexGet",
+        "operationId": "UserController_index_get",
         "summary": "index",
         "security": [
           {
@@ -2313,7 +3143,7 @@
         }
       },
       "post": {
-        "operationId": "createPost",
+        "operationId": "UserController_create_post",
         "summary": "create",
         "security": [
           {
@@ -2322,16 +3152,6 @@
         ],
         "parameters": [],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DataEnvelope"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid or revoked authentication"
           },
@@ -2356,13 +3176,23 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataEnvelope"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/system/users/{user}": {
       "patch": {
-        "operationId": "updatePatch",
+        "operationId": "UserController_update_patch",
         "summary": "update",
         "security": [
           {
@@ -2420,7 +3250,7 @@
     },
     "/api/v1/system/users/{user}/reset-password": {
       "post": {
-        "operationId": "resetPost",
+        "operationId": "UserController_reset_post",
         "summary": "reset",
         "security": [
           {
@@ -2513,6 +3343,16 @@
               "integer",
               "null"
             ]
+          },
+          "substitute_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "assignment_version": {
+            "type": "integer",
+            "minimum": 1
           },
           "content": {
             "type": "object",
@@ -2658,6 +3498,14 @@
           },
           "comment": {
             "type": "string"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "uniqueItems": true
           }
         },
         "required": [
@@ -2677,11 +3525,18 @@
             ]
           },
           "reason": {
-            "type": "string"
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [
-          "decision"
+          "decision",
+          "version"
         ]
       },
       "DefectInput": {
@@ -2768,6 +3623,222 @@
         },
         "required": [
           "message"
+        ]
+      },
+      "RoleInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "grants": {
+            "type": "object",
+            "additionalProperties": {
+              "enum": [
+                "allow",
+                "deny",
+                "inherit"
+              ]
+            },
+            "description": "Canonical permission keys or permitted category keys; server bounds grants and restorations to actor authority."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "name",
+          "active",
+          "grants",
+          "reason"
+        ]
+      },
+      "GroupInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "grants": {
+            "type": "object",
+            "additionalProperties": {
+              "enum": [
+                "allow",
+                "deny",
+                "inherit"
+              ]
+            },
+            "description": "Canonical permission keys or permitted category keys; server bounds grants and restorations to actor authority."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "members": {
+            "type": "array",
+            "maxItems": 10000,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "active",
+          "grants",
+          "reason",
+          "members"
+        ]
+      },
+      "MemberInput": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "tester",
+              "reviewer",
+              "viewer",
+              "custom"
+            ]
+          },
+          "custom_role_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "grants": {
+            "type": "object",
+            "additionalProperties": {
+              "enum": [
+                "allow",
+                "deny",
+                "inherit"
+              ]
+            },
+            "description": "Canonical permission keys or permitted category keys; server bounds grants and restorations to actor authority."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "user_id",
+          "role",
+          "reason"
+        ]
+      },
+      "AssignmentInput": {
+        "type": "object",
+        "properties": {
+          "assignee_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "substitute_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "assignee_id",
+          "substitute_id",
+          "reason"
+        ]
+      },
+      "SectionRulesInput": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "section_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "user_id": {
+                  "type": "integer"
+                },
+                "action": {
+                  "type": "string"
+                },
+                "effect": {
+                  "enum": [
+                    "inherit",
+                    "allow",
+                    "deny"
+                  ]
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "section_id",
+                "user_id",
+                "action",
+                "effect"
+              ]
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "rules",
+          "reason"
+        ]
+      },
+      "MemberOptionsInput": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "maxItems": 10000,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "ids"
         ]
       }
     }

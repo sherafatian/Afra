@@ -25,7 +25,7 @@
 - [FrontEnd](FrontEnd): React19، TypeScript و Ant Design، متصل به API واقعی.
 - [پیش‌نمایش HTML مستقل نسخه۴](afra-ui-v4.html): مرجع تعاملی آفلاین؛ احراز هویت یا سرور عملیاتی ندارد. نسخه‌های قدیمی برای تاریخچه حفظ شده‌اند.
 - [تصاویر خود برنامه](docs/screenshots): از اجرای محلی React با داده آموزشی ساختگی؛ تصویر طراحی به‌جای برنامه واقعی معرفی نشده است.
-- [فهرست۷۶مجوز هدف](docs/specifications/permission-catalog.json).
+- [فهرست۷۷مجوز هدف](docs/specifications/permission-catalog.json).
 - [Docker توسعه](compose.yaml) و [محیط جداگانه آزمون](compose.test.yaml).
 
 شروع معمولی: دستورهای دقیق، ساخت دیتابیس و مدیر اولیه در راهنمای راه‌اندازی آمده است. رمز مدیر یا کلید تولید پیش‌فرض نداریم. پوشه‌های vendor، node_modules، کلید و فایل محیط وارد Git نمی‌شوند.

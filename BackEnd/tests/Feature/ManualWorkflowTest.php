@@ -59,9 +59,9 @@ class ManualWorkflowTest extends TestCase
         $c = $this->createCaseFixture($a, $p);
         $url = '/api/v1/projects/'.$p.'/cases/'.$c['id'];
         $this->withToken($this->token($outsider))->getJson($url)->assertNotFound();
-        $this->withToken($a)->postJson($url.'/review', ['decision' => 'submit'])->assertOk();
-        $this->withToken($a)->postJson($url.'/review', ['decision' => 'approve'])->assertConflict();
-        $this->withToken($b)->postJson($url.'/review', ['decision' => 'approve'])->assertOk();
+        $this->withToken($a)->postJson($url.'/review', ['decision' => 'submit', 'version' => 1])->assertOk();
+        $this->withToken($a)->postJson($url.'/review', ['decision' => 'approve', 'version' => 1])->assertConflict();
+        $this->withToken($b)->postJson($url.'/review', ['decision' => 'approve', 'version' => 1])->assertOk();
         $this->assertDatabaseHas('test_cases', ['id' => $c['id'], 'status' => 'approved']);
     }
 
@@ -72,8 +72,8 @@ class ManualWorkflowTest extends TestCase
         $p = $this->project($a);
         $c = $this->createCaseFixture($a, $p);
         $base = '/api/v1/projects/'.$p;
-        $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit'])->assertOk();
-        $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve'])->assertOk();
+        $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit', 'version' => 1])->assertOk();
+        $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve', 'version' => 1])->assertOk();
         $run = $this->withToken($a)->postJson($base.'/runs', ['title' => 'Baseline', 'cases' => [['id' => $c['id'], 'version' => 1]]])->assertCreated()->json('data.id');
         $item = DB::table('run_items')->where('test_run_id', $run)->first();
         $resultUrl = $base.'/runs/'.$run.'/items/'.$item->id.'/results';
@@ -118,8 +118,8 @@ class ManualWorkflowTest extends TestCase
         $p = $this->project($a);
         $c = $this->createCaseFixture($a, $p);
         $base = '/api/v1/projects/'.$p;
-        $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit']);
-        $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve']);
+        $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit', 'version' => 1]);
+        $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve', 'version' => 1]);
         $run = $this->withToken($a)->postJson($base.'/runs', ['title' => 'Baseline', 'cases' => [['id' => $c['id'], 'version' => 1]]])->assertCreated()->json('data.id');
         $item = DB::table('run_items')->where('test_run_id', $run)->first();
         $this->withToken($a)->postJson($base.'/runs/'.$run.'/items/'.$item->id.'/results', ['request_id' => (string) Str::uuid(), 'outcome' => 'fail', 'checks' => ['fail', 'pass']])->assertCreated();
@@ -173,8 +173,8 @@ class ManualWorkflowTest extends TestCase
         $p = $this->project($a);
         $c = $this->createCaseFixture($a, $p);
         $base = '/api/v1/projects/'.$p;
-        $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit'])->assertOk();
-        $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve'])->assertOk();
+        $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit', 'version' => 1])->assertOk();
+        $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve', 'version' => 1])->assertOk();
         $run = $this->withToken($a)->postJson($base.'/runs', ['title' => 'Original', 'cases' => [['id' => $c['id'], 'version' => 1]]])->assertCreated()->json('data.id');
         $item = DB::table('run_items')->where('test_run_id', $run)->first();
         $this->withToken($a)->postJson($base.'/runs/'.$run.'/items/'.$item->id.'/results', ['request_id' => (string) Str::uuid(), 'outcome' => 'fail', 'checks' => ['fail', 'pass']])->assertCreated();
@@ -240,8 +240,8 @@ class ManualWorkflowTest extends TestCase
         $visible = $this->createCaseFixture($a, $p);
         $hidden = $this->createCaseFixture($a, $p, $section);
         foreach ([$visible, $hidden] as $c) {
-            $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit'])->assertOk();
-            $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve'])->assertOk();
+            $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit', 'version' => 1])->assertOk();
+            $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve', 'version' => 1])->assertOk();
         }
         $run = $this->withToken($a)->postJson($base.'/runs', ['title' => 'Mixed run', 'cases' => [['id' => $visible['id'], 'version' => 1], ['id' => $hidden['id'], 'version' => 1]]])->assertCreated()->json('data.id');
         $item = DB::table('run_items')->where('test_run_id', $run)->where('test_case_id', $hidden['id'])->first();
@@ -273,8 +273,8 @@ class ManualWorkflowTest extends TestCase
         $p = $this->project($a);
         $base = '/api/v1/projects/'.$p;
         $c = $this->createCaseFixture($a, $p);
-        $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit'])->assertOk();
-        $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve'])->assertOk();
+        $this->withToken($a)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'submit', 'version' => 1])->assertOk();
+        $this->withToken($b)->postJson($base.'/cases/'.$c['id'].'/review', ['decision' => 'approve', 'version' => 1])->assertOk();
         $run = $this->withToken($a)->postJson($base.'/runs', ['title' => 'Evidence run', 'cases' => [['id' => $c['id'], 'version' => 1]]])->assertCreated()->json('data.id');
         $item = DB::table('run_items')->where('test_run_id', $run)->first();
         $file = $this->withToken($a)->post($base.'/files', ['entity_type' => 'run_item', 'entity_id' => $item->id, 'file' => UploadedFile::fake()->createWithContent('proof.txt', 'Synthetic immutable proof')], ['Accept' => 'application/json'])->assertCreated()->json('data.id');
@@ -287,5 +287,44 @@ class ManualWorkflowTest extends TestCase
         $this->withToken($a)->postJson($url, array_replace($v, ['request_id' => (string) Str::uuid()]))->assertUnprocessable();
         $this->assertDatabaseCount('test_results', 1);
         $this->withToken($a)->post($base.'/files', ['entity_type' => 'result', 'entity_id' => $id, 'file' => UploadedFile::fake()->createWithContent('replacement.txt', 'Not allowed')], ['Accept' => 'application/json'])->assertConflict();
+    }
+
+    public function test_old_review_click_cannot_approve_a_newly_resubmitted_revision(): void
+    {
+        $author = $this->token($this->account(true));
+        $reviewer = $this->token($this->account(true));
+        $project = $this->project($author);
+        $case = $this->createCaseFixture($author, $project);
+        $url = '/api/v1/projects/'.$project.'/cases/'.$case['id'];
+        $this->withToken($author)->postJson($url.'/review', ['decision' => 'submit', 'version' => 1])->assertOk();
+        $this->withToken($author)->putJson($url, ['title' => 'Revised expectations', 'priority' => 'high', 'content' => json_decode($case['content'], true)], ['If-Match' => '1'])->assertOk();
+        $this->withToken($author)->postJson($url.'/review', ['decision' => 'submit', 'version' => 2])->assertOk();
+        $this->withToken($reviewer)->postJson($url.'/review', ['decision' => 'approve', 'version' => 1])->assertConflict();
+        $this->assertDatabaseHas('test_cases', ['id' => $case['id'], 'version' => 2, 'status' => 'pending']);
+        $this->withToken($reviewer)->postJson($url.'/review', ['decision' => 'approve', 'version' => 2])->assertOk();
+        $this->assertDatabaseHas('test_cases', ['id' => $case['id'], 'version' => 2, 'status' => 'approved']);
+    }
+
+    public function test_api_metadata_times_are_unambiguous_utc_and_civil_profile_dates_are_preserved(): void
+    {
+        $user = $this->account(true);
+        $user->profile = ['birth_date' => '1991-03-21', 'updated_at' => '2001-01-01 12:00:00'];
+        $user->save();
+        $token = $this->token($user);
+        $project = $this->project($token);
+        $response = $this->withToken($token)->getJson('/api/v1/projects')->assertOk();
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/', $response->json('data.data.0.created_at'));
+        $this->withToken($token)->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.profile.birth_date', '1991-03-21')->assertJsonPath('data.profile.updated_at', '2001-01-01 12:00:00');
+    }
+
+    public function test_password_change_challenge_can_only_cancel_its_own_session(): void
+    {
+        $user = $this->account();
+        $user->forceFill(['must_change_password' => true])->save();
+        $token = $this->token($user);
+        $this->withToken($token)->getJson('/api/v1/projects')->assertUnauthorized();
+        $this->withToken($token)->postJson('/api/auth/logout')->assertOk();
+        $this->assertNotNull(DB::table('auth_sessions')->where('user_id', $user->id)->value('revoked_at'));
+        $this->withToken($token)->postJson('/api/v1/me/password', ['current_password' => 'PasswordForTesting123!', 'password' => 'AnotherPassword123!', 'password_confirmation' => 'AnotherPassword123!'])->assertUnauthorized();
     }
 }

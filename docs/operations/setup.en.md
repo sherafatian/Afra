@@ -34,6 +34,6 @@ Set APP_DEBUG=false. Do not use `artisan serve` in production. PHP-FPM/reverse-p
 
 ## Backup and retention
 
-Operations backs up PostgreSQL consistently and maintains restoration drills. Include encrypted chunks, metadata, audit and revision tables; keep APP_KEY and previous encryption keys separately secured. Database without decryption keys cannot recover files. Protect current/previous JWT keys according to session retention/rotation policy. Never delete attachment/history rows through routine telemetry cleanup. Define the usage-log retention job separately (target90days), after that module is implemented. Test a restored copy before declaring recovery successful.
+Operations backs up PostgreSQL consistently and maintains restoration drills. Include encrypted chunks, metadata, audit and revision tables; keep APP_KEY and previous encryption keys separately secured. Database without decryption keys cannot recover files. Protect current/previous JWT keys according to session retention/rotation policy. Never delete attachment/history rows through routine telemetry cleanup. Keep service usage indefinitely by default, alongside product history. Do not enable a purge job without a later explicit organizational retention decision. Test a restored copy before declaring recovery successful.
 
 No capacity guarantee has been measured.100k is registered accounts. Benchmark representative ACL-filtered pagination, case trees, report aggregation and20MiB concurrent streaming with realistic concurrency before deployment.

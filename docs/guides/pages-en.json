@@ -12,10 +12,10 @@
   "2. Select a project and navigate — React application": 7,
   "3. Create sections and cases — React core": 8,
   "4. Request independent review — React core": 9,
-  "5. Plans, views, shared steps and requirements — target workflow": 9,
+  "5. Plans, views, shared steps and requirements — target workflow": 10,
   "6. Start an execution and record results — React core": 10,
-  "7. Defects, retesting and closure — React core": 11,
-  "8. People, profile and access — partly implemented": 11,
-  "9. Reports, service usage and release decisions — target workflow": 12,
-  "10. Troubleshooting and responsible use": 12
+  "7. Defects, retesting and closure — React core": 14,
+  "8. People, profile and access — partly implemented": 14,
+  "9. Reports, service usage and release decisions — target workflow": 17,
+  "10. Troubleshooting and responsible use": 18
 }

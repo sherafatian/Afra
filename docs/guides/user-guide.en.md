@@ -1,6 +1,6 @@
 # Afra user guide
 
-Edition 5 — 19 November 2026. This guide combines QA learning with the target Afra workflow. **The new Laravel/React implementation is incomplete.** Sections marked “target workflow” describe the approved specification and historical HTML design, not an available production feature. Check the implementation-status document. Images explicitly identified as React are actual local application screenshots using synthetic training data.
+Edition 5.1 — 20 November 2026. This guide combines QA learning with the target Afra workflow. **The new Laravel/React implementation is incomplete.** Sections marked “target workflow” describe the approved specification and historical HTML design, not an available production feature. Check the implementation-status document. Images explicitly identified as React are actual local application screenshots using synthetic training data.
 
 # Chapter 1 — Quality assurance and test design
 
@@ -82,7 +82,9 @@ Choose the project in the header. The seven navigation groups consolidate relate
 
 ## 4. Request independent review — React core
 
-From the case row’s Review menu choose Request review. An authorized reviewer other than the revision author selects Approve or Return to draft. Resolve comments and resubmit as necessary. A version conflict means someone edited the source; reload before deciding. Being a system administrator does not permit self-approval.
+From the case row’s Review menu choose Request review. An authorized reviewer other than the revision author selects Approve or Return to draft. Resolve comments and resubmit as necessary. A version conflict means someone edited the source; reload before deciding. Being a system administrator does not permit self-approval. The review window shows the exact revision, preconditions, overall expectation and checklist before confirmation; a stale decision is rejected even if the case was submitted again. Returning to draft requires a meaningful reason.
+
+![Actual independent review window](../screenshots/review-fa.png)
 
 ## 5. Plans, views, shared steps and requirements — target workflow
 
@@ -102,7 +104,15 @@ Choose a plan, release and configuration profile. Review required/optional rows 
 6. Save explicitly. Selection alone does not create a historical result.
 7. Reopen the run to inspect attempts. Repeating a recorded request must not duplicate it. Each new attempt remains visible historically.
 
-Per-user resumable drafts, time tracking, configuration expansion and the full evidence interface are target workflows still requiring implementation in the current build.
+8. In Record result, choose Upload evidence. Each allowed file may be up to20MiB. Use synthetic or redacted evidence rather than credentials or unnecessary personal data.
+9. Leave the file selected to bind it to this attempt when saving. Deselecting does not delete the uploaded file. Once recorded, evidence cannot be moved to another result or changed by replaying a request.
+10. Choose Attempt history to inspect the frozen result, recorded actor, checklist and attached files. Download requires live project/section/evidence permission.
+
+![Actual evidence selection before saving](../screenshots/execution-evidence-fa.png)
+
+![Actual result history and private download](../screenshots/result-history-fa.png)
+
+Per-user resumable drafts, time tracking and configuration expansion remain target workflows.
 
 ![Actual checklist, shown in Persian; language can be changed in the avatar menu](../screenshots/checklist-fa.png)
 
@@ -114,7 +124,22 @@ The Retest control becomes available when resolved. It creates a linked executio
 
 ## 8. People, profile and access — partly implemented
 
-System accounts and project memberships are distinct. Creating a system account does not itself grant access to every project. Add an existing account to the intended project as administrator/tester/reviewer/viewer. Use least privilege. Full account fields/avatar/group/action/section editors are target features; current core APIs provide only part of them.
+System accounts and project memberships are distinct. Creating an account does not grant access to all projects. Global account administration and complete profile identity/avatar forms remain unfinished; the project access editor below is implemented.
+
+1. Select the intended project and open Project & people → Users & access.
+2. In Project members, search current members or Add an existing organization account by at least two letters of its name/email. Select the base role, or choose an active custom role. Record a reason of at least ten characters before saving.
+3. In Access groups, create/edit a named group, select members from this project and choose its grants. Disabling a group can restore denied rights; the server checks your authority for that restoration too.
+4. In Custom roles, define a reusable project role with explicit permissions. Role changes affect current members immediately. Concurrent edits require reloading the current version.
+5. The permission editor groups actions by domain. Inherited, Allowed and Denied have separate icons. Search narrows the visible list while preserving edits outside the search. A denial overrides allows from other sources. Unavailable choices exceed your own grant/restoration authority.
+6. In Section access, select a member, section, action and effect. The nearest explicit tree rule determines inheritance; denying visibility also protects associated cases, execution history and evidence. An inherited rule removes that override rather than granting a new right.
+
+![Actual project access editor in English](../screenshots/access-permissions-en.png)
+
+![Actual mobile access editor with fixed save controls](../screenshots/access-mobile-fa.png)
+
+To assign a test, open Tests & requirements, use Assign on the case row, select an active/unexpired project tester and optional distinct substitute, give a reason and save. This changes assignment metadata without invalidating approved content. Existing runs retain their original assignments; a new run captures the latest assignment. Only authorized assigned/substitute testers can record results, subject to current permissions.
+
+![Actual primary and substitute assignment](../screenshots/assignment-fa.png)
 
 Self-service profile changes must not change role/status/expiry. Administrators handle organizational identity fields and corrections. Expiry ends the selected Tehran day. Inactive/expired users cannot continue using an old session. Administrator password reset requires secure delivery of the new temporary value; old passwords cannot be recovered.
 

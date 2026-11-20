@@ -129,7 +129,7 @@ Clients have hashed once-revealed secrets, projects/scopes/expiry/rate1–600 pe
 
 One-hop administrator-managed delegation A→B narrows client/projects/scopes/expiry/reason. Effective rights intersect live A,B,client,delegation,service. Both users must exist/active; no unknown-subject admin fallback. Exchange authenticates client + B subject token + delegation ID. Result sub=A, act.sub=B, act.client_id. Machine credentials have separate policy and cannot fabricate human authors. Revocation/ACL changes apply immediately. Creation idempotency24h: same body replay, different body409, reauthorize replay.
 
-Usage logs one deduplicated event/request including success/4xx/5xx/429 and auth failures: requestID,time,duration,service/client/project/delegation,safe outcome. No bodies/headers/tokens/secrets/PII. Baseline telemetry retention90days configurable; product audit/evidence/history indefinite. Admin-only filters Tehran inclusive interval/service/client/project/outcome/requestID/error. Aggregate **all filtered rows before pagination**: total,2xx%,4xx/5xx/other,median (mean middle pair),nearest-rankp95,daily/service breakdown. Synthetic examples are visibly distinct from actual usage.
+Usage logs one deduplicated event/request including success/4xx/5xx/429 and auth failures: requestID,time,duration,service/client/project/delegation,safe outcome. No bodies/headers/tokens/secrets/PII. Usage telemetry, product audit, evidence and history are retained indefinitely by default. No automatic purge is enabled; any future shorter telemetry policy requires an explicitly approved organizational policy. Admin-only filters Tehran inclusive interval/service/client/project/outcome/requestID/error. Aggregate **all filtered rows before pagination**: total,2xx%,4xx/5xx/other,median (mean middle pair),nearest-rankp95,daily/service breakdown. Synthetic examples are visibly distinct from actual usage.
 
 ## Overview and paper reports
 
@@ -180,6 +180,7 @@ Test project/section IDOR, all grant sources/deny precedence, ownership, self-re
 | `environments.manage` | Manage environments and builds |
 | `reports.read` | View reports and coverage |
 | `reports.export` | Export reports |
+| `attachments.read` | View and download evidence |
 | `attachments.upload` | Upload evidence |
 | `attachments.delete` | Delete permitted attachments |
 | `comments.write` | Write comments |

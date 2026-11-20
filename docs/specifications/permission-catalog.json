@@ -192,6 +192,12 @@
     "en": "Export reports"
   },
   {
+    "key": "attachments.read",
+    "category": "viewReports",
+    "fa": "مشاهده و دریافت شواهد",
+    "en": "View and download evidence"
+  },
+  {
     "key": "attachments.upload",
     "category": "execute",
     "fa": "بارگذاری شاهد",

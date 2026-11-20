@@ -54,7 +54,7 @@ for lang in ['fa','en']:
   style=d.styles[name];style.font.name='Cambria';style.font.size=Pt(size);pr=style.element.get_or_add_rPr();rf=prop(pr,'w:rFonts');rf.set(qn('w:cs'),'Vazir');prop(pr,'w:szCs',int(size*2));style.paragraph_format.line_spacing=1.4;style.paragraph_format.space_after=Pt(8)
   if name.startswith('Heading'):style.font.color.rgb=RGBColor.from_string('D65E0A');style.paragraph_format.keep_with_next=True
  header=s.header.paragraphs[0];text(header,'افرا | راهنمای کاربردی' if fa else 'AFRA | USER GUIDE',fa,True,10);bd=prop(header._p.get_or_add_pPr(),'w:pBdr');rule=prop(bd,'w:bottom','single');rule.set(qn('w:color'),'FA791B');rule.set(qn('w:sz'),'12')
- footer=s.footer.paragraphs[0];text(footer,'افرا • ویرایش ۵      صفحه ' if fa else 'Afra • Edition 5      Page ',fa,size=9);field(footer,'PAGE','1');text(footer,' / ',fa,size=9);field(footer,'NUMPAGES','1')
+ footer=s.footer.paragraphs[0];text(footer,'افرا • ویرایش ۵٫۱      صفحه ' if fa else 'Afra • Edition 5.1      Page ',fa,size=9);field(footer,'PAGE','1');text(footer,' / ',fa,size=9);field(footer,'NUMPAGES','1')
  # Branded full-page cover, generated locally from bundled logo and font.
  cover=Image.new('RGB',(1240,1754),'#fff8ef');paint=ImageDraw.Draw(cover)
  for yy in range(1754):
@@ -70,7 +70,7 @@ for lang in ['fa','en']:
  paint.rounded_rectangle((160,920,1110,1190),24,fill='#fffdf8',outline='#f0d5b8',width=2)
  cover_text(950,'۱  اصول تضمین کیفیت و طراحی تست کیس'if fa else '01   QA principles & test design',28,bold=True,x=1060 if fa else 200)
  cover_text(1065,'۲  راهنمای گام‌به‌گام سامانه'if fa else '02   Afra, step by step',28,bold=True,x=1060 if fa else 200)
- cover_text(1595,'ویرایش ۵ • ۲۸ آبان ۱۴۰۵'if fa else 'Edition 5 • 19 November 2026',27,'#ffad64')
+ cover_text(1595,'ویرایش ۵٫۱ • ۲۹ آبان ۱۴۰۵'if fa else 'Edition 5.1 • 20 November 2026',27,'#ffad64')
  cover_text(1670,'کیفیت، ریشه در دقت دارد.'if fa else 'Quality starts with care.',30,'#ffffff')
  cover_path=ROOT/f'cover-{lang}.png';cover.save(cover_path,optimize=True)
  paragraph=d.add_paragraph();inline=paragraph.add_run().add_picture(str(cover_path),width=Cm(21),height=Cm(29.7))._inline

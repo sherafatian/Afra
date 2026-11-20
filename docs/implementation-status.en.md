@@ -9,29 +9,29 @@
 * JWT RS256 login, distinct five-minute password-change challenge, fifteen-minute user access, hashed opaque refresh rotation and spent-token revocation, account/session checks, password change and basic administrator user/reset APIs.
 * Projects, section creation/tree, cases/checklist expected results and required flags, immutable content revisions, independent review, optimistic case edits, approved-case run creation, frozen items and append-only/idempotent results.
 * Defect creation from failed items, linked exact-item retest API/UI, resolution, conditional normal closure and reasoned forced closure without a synthetic Pass.
-* Basic project roles, direct grants, group-deny evaluation/group-create API, profile name/mobile/bio, member listing/assignment, project activity filters/API, dashboard counts.
-* Private encrypted database-chunk upload/download API with20MiB limit. No complete evidence UI yet.
+* Canonical77-action catalog; project roles/custom roles, editable groups and direct grants, versioned section rules, effective capabilities and constrained access-management APIs/UI. Profile name/mobile/bio, searchable member selection, project activity filters/API and basic dashboard counts.
+* Private encrypted database chunks with20MiB limit; real upload/selection UI, transactional immutable result-evidence binding, attempt history and authenticated download. Primary/substitute assignment has an independent optimistic version and does not invalidate approved content or change existing runs.
 * General/backend/frontend standalone Persian/English specifications; bilingual setup/runbooks and QA/user guides; actual React screenshots; native Word TOC and embedded Vazir fonts with Cambria declared for Latin.
 
 ## Explicitly incomplete
 
-* Full76-action catalog alignment, custom roles, editable groups/section access, complete capability endpoints and consistent section authorization/filtering across every list/report/nested action; complete delegated access-manager constraints. **Security acceptance blocked.**
-* Account expiry as an inclusive Tehran date picker, national-ID encryption/checksum/fingerprint and profile identity workflow, avatars/reencoding, complete user UI,24-hour temporary reset expiry, login account/IP rate limiter, CSRF bootstrap/cross-tab refresh, signing-key rotation and complete localized error contract.
+* Comprehensive authorization/security acceptance across all future domain workflows and reports. Current project/section filtering and authority-bounded role/group/direct-grant updates have focused regression coverage; this does not constitute a full security audit.
+* Account expiry as an inclusive Tehran date picker, national-ID encryption/checksum/fingerprint and profile identity workflow, avatars/reencoding, complete user UI,24-hour temporary reset expiry, CSRF bootstrap/cross-tab refresh, signing-key rotation and complete localized error contract.
 * Requirement revisions/compatibility/impact/traceability; independently reviewed pinned shared steps and consumer updates; rich templates/datasets/custom-field schema validation/versioning; dynamic saved-view planning, preview fingerprints, configuration/data expansion, required-variant aggregation.
 * Generic record storage/forms exist for these domains but **are not completed workflows** and must not be represented as such.
-* Execution drafts/pause/resume/timing/substitutes, immutable evidence bindings/UI, comments/mentions/follows/notifications; complete transition matrix; release gates and richer actionable/trend/coverage dashboards.
+* Execution drafts/pause/resume/timing, comments/mentions/follows/notifications; complete transition matrix; release gates and richer actionable/trend/coverage dashboards.
 * CSV/XLSX import/export; professional all-filtered-data PDF/print (current print is basic browser printing).
 * Exposed service handlers/client credentials/external audience/delegation/idempotency/usage telemetry and reports are **not implemented**. No fake insecure external endpoint has been supplied.
 * Production PHP-FPM/reverse-proxy/worker/scheduler packaging, readiness, comprehensive security/integration/accessibility/print/load tests and measured100k-account performance.
 
 ## Verification
 
-Real PostgreSQL17 feature suite:15 tests,145 assertions passed during development (includes two framework smoke tests). Covered project isolation, independent review, immutable snapshot, result idempotency/conflict, immediate inactive/expired account rejection, group deny precedence, forced closure without Pass, separate password challenge, and committed refresh-replay family revocation. This is focused core coverage, **not** a comprehensive security audit.
+Real PostgreSQL17 feature suite:31 tests,273 assertions passed (includes two framework smoke tests). Coverage includes project/section isolation, independent/stale review, frozen snapshots, idempotency, inactive/expired accounts, group/category deny precedence, privilege restoration bounds, optimistic membership/assignment/rule edits, substitute execution, independent evidence-read denial, encrypted20MiB upload/stream roundtrip, immutable evidence, UTC metadata, password-challenge cancellation and refresh replay revocation. Four frontend API tests pass, including single-flight renewal and prevention of stale refresh/write replay after an identity change. This is focused regression coverage, not a comprehensive security audit.
 
 React TypeScript/Vite build passed. Docker PHP8.4 build passed using temporary BuildKit CA secret for the environment; the CA was not baked into the image. Docker CLI server is development-only. Browser checks/screenshots use local actual application and synthetic training data; detailed results are in validation documents. No organization server was accessed. No production credentials or keys are included.
 
 Complete the listed gaps against the full specification and pass acceptance tests before production deployment. A successful core test suite is not evidence that unimplemented modules exist.
 
-## Verified continuation update
+## Verified browser continuation
 
-Section restrictions now filter case lists, execution items, defects, audit and dashboard counts; execution items retain their section context. Hidden-section evidence is denied. Result evidence is selected from an item upload and bound transactionally to one immutable result; idempotent replay cannot change/rebind it. Upload/selection and result-history downloads have been added to React; final real-browser verification of this new evidence UI is still pending. Named login/account/IP and API limiters use separate namespaces. Remaining catalog alignment, access-management UI and comprehensive security acceptance are still open.
+Synthetic training flows exercised group/custom-role editing, membership role changes, independent review and primary/substitute assignment. Assigned-tester evidence upload → recorded result → history download completed with matching SHA256 bytes and no page errors or failed API requests. Persian mobile and English access editors passed viewport/footer checks. Dates in server metadata are explicit UTC; browser checks used Asia/Tehran. Main data, capabilities and evidence reject stale responses when their workspace/context changes. Account administration, service consumption, advanced planning and professional reports remain unfinished as listed above.

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Access;
+use App\Services\AssignmentRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,7 +55,20 @@ class WorkspaceController extends Controller
     {
         $q = DB::table('projects');
         if (! $r->user()->is_system_admin) {
-            $q->whereIn('id', DB::table('project_members')->select('project_id')->where('user_id', $r->user()->id));
+            $members = DB::table('project_members as m')->select('m.project_id')->where('m.user_id', $r->user()->id)
+                ->whereRaw("COALESCE(m.grants->>'project.view','inherit') NOT IN ('deny','false')")
+                ->whereRaw("COALESCE(m.grants->>'view','inherit') NOT IN ('deny','false')")
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')->from('project_roles as role')->whereColumn('role.id', 'm.custom_role_id')->where('role.active', true)->where(function ($q) {
+                        $q->whereRaw("role.grants->>'project.view' IN ('deny','false')")->orWhereRaw("role.grants->>'view' IN ('deny','false')");
+                    });
+                })
+                ->whereNotExists(function ($q) use ($r) {
+                    $q->selectRaw('1')->from('permission_groups as g')->join('permission_group_members as gm', 'gm.permission_group_id', '=', 'g.id')->whereColumn('g.project_id', 'm.project_id')->where('gm.user_id', $r->user()->id)->where('g.active', true)->where(function ($q) {
+                        $q->whereRaw("g.grants->>'project.view' IN ('deny','false')")->orWhereRaw("g.grants->>'view' IN ('deny','false')");
+                    });
+                });
+            $q->whereIn('id', $members);
         }
 
         return $this->reply($q->orderBy('name')->paginate(25));
@@ -91,13 +105,15 @@ class WorkspaceController extends Controller
 
     public function createSection(Request $r, string $project): JsonResponse
     {
-        $this->access($r, $project, 'sections.manage');
+        $this->access($r, $project, 'sections.create');
         $v = $r->validate(['name' => 'required|string|max:200', 'parent_id' => 'nullable|uuid']);
         $depth = 1;
         $parent = $v['parent_id'] ?? null;
+        if ($parent) {
+            $this->access($r, $project, 'sections.create', $parent);
+        }
         while ($parent) {
             $node = $this->record('sections', $parent, $project);
-            $this->access($r, $project, 'sections.manage', $node->id);
             $parent = $node->parent_id;
             abort_if(++$depth > 8, 422, 'Maximum section depth is eight.');
         }$id = (string) Str::uuid();
@@ -133,11 +149,14 @@ class WorkspaceController extends Controller
 
     private function caseInput(Request $r, string $project): array
     {
-        $v = $r->validate(['title' => 'required|string|max:250', 'section_id' => 'nullable|uuid', 'assignee_id' => 'nullable|integer', 'priority' => 'required|in:critical,high,medium,low', 'content' => 'required|array:preconditions,expected,checklist,tags,type,estimate', 'content.preconditions' => 'nullable|string|max:10000', 'content.expected' => 'nullable|string|max:10000', 'content.type' => 'nullable|in:functional,regression,smoke,security,performance', 'content.estimate' => 'nullable|integer|min:1|max:1440', 'content.tags' => 'nullable|array|max:30', 'content.tags.*' => 'string|max:60', 'content.checklist' => 'required|array|min:1|max:200', 'content.checklist.*' => 'array:text,expected,required', 'content.checklist.*.text' => 'required|string|max:3000', 'content.checklist.*.expected' => 'required|string|max:3000', 'content.checklist.*.required' => 'required|boolean']);
+        $v = $r->validate(['title' => 'required|string|max:250', 'section_id' => 'nullable|uuid', 'assignee_id' => 'nullable|integer', 'substitute_id' => 'nullable|integer', 'assignment_version' => 'sometimes|integer|min:1', 'priority' => 'required|in:critical,high,medium,low', 'content' => 'required|array:preconditions,expected,checklist,tags,type,estimate', 'content.preconditions' => 'nullable|string|max:10000', 'content.expected' => 'nullable|string|max:10000', 'content.type' => 'nullable|in:functional,regression,smoke,security,performance', 'content.estimate' => 'nullable|integer|min:1|max:1440', 'content.tags' => 'nullable|array|max:30', 'content.tags.*' => 'string|max:60', 'content.checklist' => 'required|array|min:1|max:200', 'content.checklist.*' => 'array:text,expected,required', 'content.checklist.*.text' => 'required|string|max:3000', 'content.checklist.*.expected' => 'required|string|max:3000', 'content.checklist.*.required' => 'required|boolean']);
         if (! empty($v['section_id'])) {
             $this->record('sections', $v['section_id'], $project);
-        }if (! empty($v['assignee_id'])) {
-            abort_unless(DB::table('project_members')->where('project_id', $project)->where('user_id', $v['assignee_id'])->exists(), 422, 'Assignee must belong to this project.');
+        }
+        foreach (['assignee_id', 'substitute_id'] as $key) {
+            if (isset($v[$key])) {
+                $v[$key] = (int) $v[$key];
+            }
         }
 
         return $v;
@@ -145,27 +164,47 @@ class WorkspaceController extends Controller
 
     public function saveCase(Request $r, string $project, ?string $case = null): JsonResponse
     {
-        $this->access($r, $project, $case ? 'cases.update' : 'cases.create');
+        $operation = $case ? 'cases.update' : 'cases.create';
+        $this->access($r, $project, $operation);
         $v = $this->caseInput($r, $project);
-        app(Access::class)->check($r, $project, $case ? 'cases.update' : 'cases.create', $v['section_id'] ?? null);
-        if ($case) {
-            $previous = $this->record('test_cases', $case, $project);
-            app(Access::class)->check($r, $project, 'cases.update', $previous->section_id);
-        }$id = $case ?? (string) Str::uuid();
-        DB::transaction(function () use ($r, $project, $case, $id, $v) {
+        $id = $case ?? (string) Str::uuid();
+        DB::transaction(function () use ($r, $project, $case, $id, $v, $operation) {
             $old = $case ? DB::table('test_cases')->where('id', $id)->where('project_id', $project)->lockForUpdate()->first() : null;
             if ($case) {
                 abort_unless($old, 404);
+                $this->access($r, $project, $operation, $old->section_id);
                 abort_unless((string) $old->version === $r->header('If-Match'), 409, 'The test case changed. Reload before saving.');
-            }$version = ($old->version ?? 0) + 1;
+            }
+            $section = array_key_exists('section_id', $v) ? $v['section_id'] : ($old->section_id ?? null);
+            $this->access($r, $project, $operation, $section);
+            $changed = $old && app(AssignmentRules::class)->changed($old, $v);
+            $effective = ['assignee_id' => array_key_exists('assignee_id', $v) ? $v['assignee_id'] : ($old->assignee_id ?? null), 'substitute_id' => array_key_exists('substitute_id', $v) ? $v['substitute_id'] : ($old->substitute_id ?? null)];
+            if (! $old || $changed) {
+                app(AssignmentRules::class)->validate($project, $effective);
+            }
+            $needsAssignment = $old ? $changed : (! empty($v['substitute_id']) || (! empty($v['assignee_id']) && (string) $v['assignee_id'] !== (string) $r->user()->id));
+            if ($needsAssignment) {
+                $this->access($r, $project, 'cases.assign', $old->section_id ?? $section);
+                $this->access($r, $project, 'cases.assign', $section);
+            }
+            if ($changed) {
+                abort_unless((int) ($v['assignment_version'] ?? 0) === $old->assignment_version, 409, 'The assignment changed. Reload before saving.');
+            }
+            $version = ($old->version ?? 0) + 1;
+            $assignmentVersion = ($old->assignment_version ?? 1) + ($changed ? 1 : 0);
             $row = $v;
+            $row['assignment_version'] = $assignmentVersion;
+            $row['author_id'] = $r->user()->id;
             $row['content'] = json_encode($v['content']);
             $row += ['status' => 'draft', 'version' => $version, 'updated_at' => now()];
-            if ($case) {
+            if ($old) {
                 DB::table('test_cases')->where('id', $id)->update($row);
             } else {
-                DB::table('test_cases')->insert($row + ['id' => $id, 'project_id' => $project, 'author_id' => $r->user()->id, 'created_at' => now()]);
-            }DB::table('case_revisions')->insert(['test_case_id' => $id, 'version' => $version, 'author_id' => $r->user()->id, 'snapshot' => json_encode($v), 'created_at' => now(), 'updated_at' => now()]);
+                DB::table('test_cases')->insert($row + ['id' => $id, 'project_id' => $project, 'created_at' => now()]);
+            }
+            $snapshot = $v + ['section_id' => $section, 'assignee_id' => $old->assignee_id ?? null, 'substitute_id' => $old->substitute_id ?? null];
+            $snapshot['assignment_version'] = $assignmentVersion;
+            DB::table('case_revisions')->insert(['test_case_id' => $id, 'version' => $version, 'author_id' => $r->user()->id, 'snapshot' => json_encode($snapshot), 'created_at' => now(), 'updated_at' => now()]);
             $this->audit($r, $project, $case ? 'cases.update' : 'cases.create', $id, ['version' => $version]);
         });
 
@@ -174,12 +213,13 @@ class WorkspaceController extends Controller
 
     public function review(Request $r, string $project, string $case): JsonResponse
     {
-        $v = $r->validate(['decision' => 'required|in:submit,approve,reject', 'reason' => 'nullable|string|max:2000']);
-        $this->access($r, $project, $v['decision'] === 'submit' ? 'cases.update' : 'cases.review');
+        $v = $r->validate(['decision' => 'required|in:submit,approve,reject', 'version' => 'required|integer|min:1', 'reason' => 'required_if:decision,reject|nullable|string|min:10|max:2000']);
+        $this->access($r, $project, $v['decision'] === 'submit' ? 'cases.request_review' : 'cases.review');
         DB::transaction(function () use ($r, $project, $case, $v) {
             $c = DB::table('test_cases')->where('id', $case)->where('project_id', $project)->lockForUpdate()->first();
             abort_unless($c, 404);
-            $this->access($r, $project, $v['decision'] === 'submit' ? 'cases.update' : 'cases.review', $c->section_id);
+            abort_unless((int) $v['version'] === $c->version, 409, 'The revision changed. Review the current content before deciding.');
+            $this->access($r, $project, $v['decision'] === 'submit' ? 'cases.request_review' : 'cases.review', $c->section_id);
             $rev = DB::table('case_revisions')->where('test_case_id', $case)->where('version', $c->version)->first();
             if ($v['decision'] === 'submit') {
                 abort_unless($c->status === 'draft', 409);
@@ -212,7 +252,11 @@ class WorkspaceController extends Controller
     public function saveRecord(Request $r, string $project, string $kind, ?string $record = null): JsonResponse
     {
         $this->kind($kind);
-        $this->access($r, $project, $kind.'.manage');
+        $prefix = match ($kind) {
+            'shared-steps' => 'shared','configuration-profiles' => 'profiles','custom-fields' => 'fields',default => $kind
+        };
+        $operation = $kind === 'saved-views' ? 'views.manage' : $prefix.'.'.($record ? 'update' : 'create');
+        $this->access($r, $project, $operation);
         $v = $r->validate(['title' => 'required|string|max:250', 'content' => 'required|array']);
         $id = $record ?? (string) Str::uuid();
         DB::transaction(function () use ($r, $project, $kind, $record, $v, $id) {
@@ -252,7 +296,7 @@ class WorkspaceController extends Controller
                 abort_unless($c, 404);
                 $this->access($r, $project, 'runs.create', $c->section_id);
                 abort_unless($c->status === 'approved' && $c->version === $entry['version'], 409, 'Only the current approved revision can enter a run. Refresh the selection.');
-                DB::table('run_items')->insert(['id' => (string) Str::uuid(), 'test_run_id' => $id, 'test_case_id' => $c->id, 'section_id' => $c->section_id, 'snapshot' => json_encode(['case_id' => $c->id, 'version' => $c->version, 'title' => $c->title, 'content' => json_decode($c->content, true)]), 'assignee_id' => $c->assignee_id, 'created_at' => now(), 'updated_at' => now()]);
+                DB::table('run_items')->insert(['id' => (string) Str::uuid(), 'test_run_id' => $id, 'test_case_id' => $c->id, 'section_id' => $c->section_id, 'snapshot' => json_encode(['case_id' => $c->id, 'version' => $c->version, 'title' => $c->title, 'assignment_version' => $c->assignment_version, 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'content' => json_decode($c->content, true)]), 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'created_at' => now(), 'updated_at' => now()]);
             }$this->audit($r, $project, 'runs.create', $id);
         });
 
@@ -281,7 +325,7 @@ class WorkspaceController extends Controller
         abort_unless($i, 404);
         $this->access($r, $project, 'runs.execute', $i->section_id);
         $member = DB::table('project_members')->where('project_id', $project)->where('user_id', $r->user()->id)->first();
-        abort_unless($r->user()->is_system_admin || $member?->role === 'admin' || $i->assignee_id === $r->user()->id, 403, 'This item is assigned to another tester.');
+        abort_unless($r->user()->is_system_admin || $member?->role === 'admin' || ($i->assignee_id === $r->user()->id || $i->substitute_id === $r->user()->id), 403, 'This item is assigned to another tester.');
         $v = $r->validate(['evidence_ids' => 'sometimes|array|max:20', 'evidence_ids.*' => 'uuid|distinct', 'request_id' => 'required|uuid', 'outcome' => 'required|in:pass,fail,blocked,skipped', 'checks' => 'required|array|max:200', 'checks.*' => 'required|in:pass,fail,skipped,not_run', 'comment' => 'nullable|string|max:5000']);
         $steps = json_decode($i->snapshot, true)['content']['checklist'];
         abort_unless(count($v['checks']) === count($steps), 422, 'Every checklist item needs a result.');
@@ -345,12 +389,12 @@ class WorkspaceController extends Controller
     {
         $v = $r->validate(['status' => 'required|in:in_fix,resolved,open,closed', 'force' => 'sometimes|boolean', 'confirmed' => 'sometimes|boolean', 'reason' => 'required|string|min:10|max:1000']);
         $forced = ($v['force'] ?? false) && $v['status'] === 'closed';
-        $this->access($r, $project, $forced ? 'defects.force_close' : 'defects.manage');
+        $this->access($r, $project, $forced ? 'defects.force_close' : ($v['status'] === 'closed' ? 'defects.close' : 'defects.transition'));
         DB::transaction(function () use ($r, $project, $defect, $v, $forced) {
             $d = DB::table('defects')->where('id', $defect)->where('project_id', $project)->lockForUpdate()->first();
             abort_unless($d, 404);
             $origin = DB::table('run_items')->find($d->run_item_id);
-            $this->access($r, $project, $forced ? 'defects.force_close' : 'defects.manage', $origin->section_id);
+            $this->access($r, $project, $forced ? 'defects.force_close' : ($v['status'] === 'closed' ? 'defects.close' : 'defects.transition'), $origin->section_id);
             abort_if($d->status === $v['status'], 409);
             if ($v['status'] === 'closed') {
                 if ($forced) {
@@ -419,7 +463,7 @@ class WorkspaceController extends Controller
         $source = DB::table('run_items')->find($d->run_item_id);
         $this->access($r, $project, 'runs.retest', $source->section_id);
         $m = DB::table('project_members')->where('project_id', $project)->where('user_id', $r->user()->id)->first();
-        abort_unless($r->user()->is_system_admin || $m?->role === 'admin' || $source->assignee_id === $r->user()->id, 403);
+        abort_unless($r->user()->is_system_admin || $m?->role === 'admin' || ($source->assignee_id === $r->user()->id || $source->substitute_id === $r->user()->id), 403);
         $run = (string) Str::uuid();
         $item = (string) Str::uuid();
         DB::transaction(function () use ($r, $project, $defect, $d, $source, $run, $item) {
@@ -436,64 +480,20 @@ class WorkspaceController extends Controller
     {
         $this->access($r, $project);
 
-        return $this->reply(DB::table('project_members')->join('users', 'users.id', '=', 'project_members.user_id')->where('project_id', $project)->select('users.id', 'users.name', 'users.email', 'users.active', 'project_members.role', 'project_members.grants')->paginate(25));
-    }
-
-    public function saveMember(Request $r, string $project): JsonResponse
-    {
-        $this->access($r, $project, 'members.manage');
-        $v = $r->validate(['user_id' => 'required|integer|exists:users,id', 'role' => 'required|in:admin,tester,reviewer,viewer', 'grants' => 'sometimes|array']);
-        if ($v['role'] === 'admin' || isset($v['grants'])) {
-            $this->access($r, $project, 'access.manage');
-        }$roleActions = match ($v['role']) {
-            'admin' => Access::ACTIONS,
-            'tester' => ['view', 'runs.execute', 'runs.retest', 'defects.create', 'defects.retest', 'files.upload', 'files.download', 'reports.read'],
-            'reviewer' => ['view', 'cases.review'],
-            default => ['view'],
-        };
-        foreach ($roleActions as $action) {
-            $this->access($r, $project, $action);
+        $v = $r->validate(['q' => 'nullable|string|max:200', 'active_only' => 'sometimes|boolean', 'per_page' => 'sometimes|integer|min:1|max:100']);
+        $query = DB::table('project_members')->join('users', 'users.id', '=', 'project_members.user_id')->where('project_id', $project);
+        if ($v['active_only'] ?? false) {
+            $query->where('users.active', true)->where(function ($q) {
+                $q->whereNull('users.expires_at')->orWhere('users.expires_at', '>', now());
+            });
         }
-        foreach ($v['grants'] ?? [] as $action => $effect) {
-            abort_unless(in_array($action, Access::ACTIONS, true) && in_array($effect, ['inherit', 'allow', 'deny'], true), 422);
-            if ($effect === 'allow') {
-                $this->access($r, $project, $action);
-            }
-        }DB::table('project_members')->updateOrInsert(['project_id' => $project, 'user_id' => $v['user_id']], ['role' => $v['role'], 'grants' => json_encode($v['grants'] ?? [])]);
-        DB::table('users')->where('id', $v['user_id'])->increment('acl_version');
-        $this->audit($r, $project, 'members.save', (string) $v['user_id']);
+        if (! empty($v['q'])) {
+            $query->where(function ($q) use ($v) {
+                $q->where('users.name', 'ilike', '%'.$v['q'].'%')->orWhere('users.email', 'ilike', '%'.$v['q'].'%');
+            });
+        }
 
-        return $this->reply(true);
-    }
-
-    public function groups(Request $r, string $project): JsonResponse
-    {
-        $this->access($r, $project, 'access.manage');
-
-        return $this->reply(DB::table('permission_groups')->where('project_id', $project)->get());
-    }
-
-    public function saveGroup(Request $r, string $project): JsonResponse
-    {
-        $this->access($r, $project, 'access.manage');
-        $v = $r->validate(['name' => 'required|string|max:100', 'active' => 'required|boolean', 'grants' => 'required|array', 'members' => 'required|array|max:10000', 'members.*' => 'integer|distinct']);
-        foreach ($v['grants'] as $key => $effect) {
-            abort_unless(in_array($key, Access::ACTIONS, true) && in_array($effect, ['allow', 'deny', 'inherit'], true), 422);
-            if ($effect === 'allow') {
-                $this->access($r, $project, $key);
-            }
-        }foreach ($v['members'] as $u) {
-            abort_unless(DB::table('project_members')->where('project_id', $project)->where('user_id', $u)->exists(), 422);
-        }$id = (string) Str::uuid();
-        DB::transaction(function () use ($r, $project, $v, $id) {
-            DB::table('permission_groups')->insert(['id' => $id, 'project_id' => $project, 'name' => $v['name'], 'active' => $v['active'], 'grants' => json_encode($v['grants']), 'created_at' => now(), 'updated_at' => now()]);
-            foreach ($v['members'] as $u) {
-                DB::table('permission_group_members')->insert(['permission_group_id' => $id, 'user_id' => $u]);
-                DB::table('users')->where('id', $u)->increment('acl_version');
-            }$this->audit($r, $project, 'access.group.create', $id);
-        });
-
-        return $this->reply(['id' => $id], 201);
+        return $this->reply($query->select('users.id', 'users.name', 'users.email', 'users.active', 'project_members.role', 'project_members.custom_role_id', 'project_members.version as membership_version', 'project_members.grants')->orderBy('users.name')->paginate($v['per_page'] ?? 25));
     }
 
     public function profile(Request $r): JsonResponse

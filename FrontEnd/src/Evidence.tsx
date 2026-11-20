@@ -1,14 +1,211 @@
-import React,{useEffect,useState} from 'react';
-import {App,Button,Checkbox,Empty,List,Space,Typography,Upload} from 'antd';
-import {DownloadOutlined,PaperClipOutlined,UploadOutlined} from '@ant-design/icons';
-import {api,download} from './api';
-type EvidenceFile={id:string;name:string;size:number;mime:string;owner_id:number};
-type Props={project:string;entityType:'run_item'|'result';entityId:string;language:'fa'|'en';userId:number;selected?:string[];onChange?:(ids:string[])=>void};
-export function Evidence({project,entityType,entityId,language,userId,selected=[],onChange}:Props){
- const {message}=App.useApp();const [files,setFiles]=useState<EvidenceFile[]>([]);const [busy,setBusy]=useState(false);const label=(fa:string,en:string)=>language==='fa'?fa:en;const base=`v1/projects/${project}/files`;
- const load=async()=>{try{setFiles(await api<EvidenceFile[]>(base+`?entity_type=${entityType}&entity_id=${entityId}`));}catch(e){message.error((e as Error).message);}};
- useEffect(()=>{void load();},[project,entityType,entityId]);
- const upload=async(file:File)=>{if(file.size>20*1024*1024){message.error(label('حداکثر اندازه هر فایل ۲۰ مگابایت است.','Each file may be up to 20 MiB.'));return Upload.LIST_IGNORE;}setBusy(true);try{const data=new FormData();data.append('file',file);data.append('entity_type',entityType);data.append('entity_id',entityId);const saved=await api<EvidenceFile>(base,{method:'POST',body:data});onChange?.([...selected,saved.id]);await load();}catch(e){message.error((e as Error).message);}finally{setBusy(false);}return Upload.LIST_IGNORE;};
- const saveFile=async(file:EvidenceFile)=>{try{const blob=await download(base+'/'+file.id);const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=file.name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){message.error((e as Error).message);}};
- return <section className="evidence-panel"><Space wrap style={{width:'100%',justifyContent:'space-between'}}><Typography.Text strong><PaperClipOutlined/> {label('شواهد و پیوست‌ها','Evidence & attachments')}</Typography.Text>{entityType==='run_item'&&<Upload showUploadList={false} beforeUpload={upload} accept=".pdf,.jpg,.jpeg,.png,.webp,.txt,.csv,.zip,.docx,.xlsx,.mp4,.webm"><Button loading={busy} icon={<UploadOutlined/>}>{label('بارگذاری شاهد','Upload evidence')}</Button></Upload>}</Space>{entityType==='run_item'&&<p className="evidence-note">{label('فایل‌های انتخاب‌شده همراه نتیجه ثبت و ثابت می‌شوند. برداشتن انتخاب، فایل را حذف نمی‌کند.','Selected files are frozen with the recorded result. Deselecting does not delete a file.')}</p>}<List size="small" dataSource={files} locale={{emptyText:<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={label('پیوستی وجود ندارد.','No attachments.')}/>}} renderItem={file=><List.Item actions={[<Button key="download" type="text" icon={<DownloadOutlined/>} onClick={()=>saveFile(file)} aria-label={label('دریافت ','Download ')+file.name}/>]}><Space>{entityType==='run_item'&&file.owner_id===userId&&<Checkbox checked={selected.includes(file.id)} aria-label={label('ثبت همراه نتیجه: ','Include with result: ')+file.name} onChange={e=>onChange?.(e.target.checked?[...selected,file.id]:selected.filter(id=>id!==file.id))}/>}<div><Typography.Text>{file.name}</Typography.Text><small style={{display:'block',opacity:.65}}>{new Intl.NumberFormat(language==='fa'?'fa-IR':'en-US',{maximumFractionDigits:1}).format(file.size/1024)} KiB</small></div></Space></List.Item>}/></section>;
+import React, { useEffect, useState, useRef } from "react";
+import {
+  App,
+  Button,
+  Checkbox,
+  Empty,
+  List,
+  Space,
+  Typography,
+  Upload,
+} from "antd";
+import {
+  DownloadOutlined,
+  PaperClipOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
+import { api, download } from "./api";
+type EvidenceFile = {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  owner_id: number;
+};
+type Props = {
+  project: string;
+  entityType: "run_item" | "result";
+  entityId: string;
+  language: "fa" | "en";
+  userId: number;
+  selected?: string[];
+  onChange?: (ids: string[]) => void;
+};
+export function Evidence({
+  project,
+  entityType,
+  entityId,
+  language,
+  userId,
+  selected = [],
+  onChange,
+}: Props) {
+  const { message } = App.useApp();
+  const [files, setFiles] = useState<EvidenceFile[]>([]);
+  const [busy, setBusy] = useState(false);
+  const label = (fa: string, en: string) => (language === "fa" ? fa : en);
+  const base = `v1/projects/${project}/files`;
+  const context = useRef(0);
+  const selection = useRef(selected);
+  selection.current = selected;
+  const load = async (generation = context.current) => {
+    try {
+      const data = await api<EvidenceFile[]>(
+        base + `?entity_type=${entityType}&entity_id=${entityId}`,
+      );
+      if (generation === context.current) setFiles(data);
+    } catch (e) {
+      if (generation === context.current) message.error((e as Error).message);
+    }
+  };
+  useEffect(() => {
+    context.current++;
+    setFiles([]);
+    setBusy(false);
+    void load();
+    return () => {
+      context.current++;
+    };
+  }, [project, entityType, entityId]);
+  const upload = async (file: File) => {
+    if (file.size > 20 * 1024 * 1024) {
+      message.error(
+        label(
+          "حداکثر اندازه هر فایل ۲۰ مگابایت است.",
+          "Each file may be up to 20 MiB.",
+        ),
+      );
+      return Upload.LIST_IGNORE;
+    }
+    const generation = context.current;
+    setBusy(true);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      data.append("entity_type", entityType);
+      data.append("entity_id", entityId);
+      const saved = await api<EvidenceFile>(base, {
+        method: "POST",
+        body: data,
+      });
+      if (generation !== context.current) return Upload.LIST_IGNORE;
+      onChange?.([...new Set([...selection.current, saved.id])]);
+      await load(generation);
+    } catch (e) {
+      if (generation === context.current) message.error((e as Error).message);
+    } finally {
+      if (generation === context.current) setBusy(false);
+    }
+    return Upload.LIST_IGNORE;
+  };
+  const saveFile = async (file: EvidenceFile) => {
+    const generation = context.current;
+    try {
+      const blob = await download(base + "/" + file.id);
+      if (generation !== context.current) return;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file.name;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+  return (
+    <section className="evidence-panel">
+      <Space wrap style={{ width: "100%", justifyContent: "space-between" }}>
+        <Typography.Text strong>
+          <PaperClipOutlined />{" "}
+          {label("شواهد و پیوست‌ها", "Evidence & attachments")}
+        </Typography.Text>
+        {entityType === "run_item" && (
+          <Upload
+            showUploadList={false}
+            beforeUpload={upload}
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.txt,.csv,.zip,.docx,.xlsx,.mp4,.webm"
+          >
+            <Button loading={busy} icon={<UploadOutlined />}>
+              {label("بارگذاری شاهد", "Upload evidence")}
+            </Button>
+          </Upload>
+        )}
+      </Space>
+      {entityType === "run_item" && (
+        <p className="evidence-note">
+          {label(
+            "فایل‌های انتخاب‌شده همراه نتیجه ثبت و ثابت می‌شوند. برداشتن انتخاب، فایل را حذف نمی‌کند.",
+            "Selected files are frozen with the recorded result. Deselecting does not delete a file.",
+          )}
+        </p>
+      )}
+      <List
+        size="small"
+        dataSource={files}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={label("پیوستی وجود ندارد.", "No attachments.")}
+            />
+          ),
+        }}
+        renderItem={(file) => (
+          <List.Item
+            actions={[
+              <Button
+                key="download"
+                type="text"
+                icon={<DownloadOutlined />}
+                onClick={() => saveFile(file)}
+                aria-label={label("دریافت ", "Download ") + file.name}
+              />,
+            ]}
+          >
+            <Space>
+              {entityType === "run_item" && file.owner_id === userId && (
+                <Checkbox
+                  checked={selected.includes(file.id)}
+                  aria-label={
+                    label("ثبت همراه نتیجه: ", "Include with result: ") +
+                    file.name
+                  }
+                  onChange={(e) =>
+                    onChange?.(
+                      e.target.checked
+                        ? [...selected, file.id]
+                        : selected.filter((id) => id !== file.id),
+                    )
+                  }
+                />
+              )}
+              <div>
+                <Typography.Text>{file.name}</Typography.Text>
+                <small style={{ display: "block", opacity: 0.65 }}>
+                  {new Intl.NumberFormat(
+                    language === "fa" ? "fa-IR" : "en-US",
+                    { maximumFractionDigits: 1 },
+                  ).format(
+                    file.size >= 1048576
+                      ? file.size / 1048576
+                      : file.size >= 1024
+                        ? file.size / 1024
+                        : file.size,
+                  )}{" "}
+                  {file.size >= 1048576
+                    ? "MiB"
+                    : file.size >= 1024
+                      ? "KiB"
+                      : "B"}
+                </small>
+              </div>
+            </Space>
+          </List.Item>
+        )}
+      />
+    </section>
+  );
 }
