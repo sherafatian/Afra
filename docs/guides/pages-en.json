@@ -1,0 +1,21 @@
+{
+  "Contents": 2,
+  "Chapter 1 — Quality assurance and test design": 4,
+  "1. Quality assurance and testing": 4,
+  "2. What a test case contains": 4,
+  "3. Selecting useful test data": 4,
+  "4. Review and versioning": 5,
+  "5. Results, evidence and defects": 5,
+  "6. Reading quality reports": 5,
+  "Chapter 2 — Working with Afra": 7,
+  "1. Sign in and first password change — React application": 7,
+  "2. Select a project and navigate — React application": 7,
+  "3. Create sections and cases — React core": 8,
+  "4. Request independent review — React core": 9,
+  "5. Plans, views, shared steps and requirements — target workflow": 9,
+  "6. Start an execution and record results — React core": 10,
+  "7. Defects, retesting and closure — React core": 11,
+  "8. People, profile and access — partly implemented": 11,
+  "9. Reports, service usage and release decisions — target workflow": 12,
+  "10. Troubleshooting and responsible use": 12
+}

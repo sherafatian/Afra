@@ -1,0 +1,13 @@
+# Security and acceptance notes
+
+Read implementation-status.en.md: **this build has unresolved authorization and feature gaps and must not be deployed as a complete secure product**. No security certification or full audit is claimed.
+
+The core fixes RS256 in a maintained firebase/php-jwt7.2 verifier, checks live user/session/security version, separates a five-minute password-change audience, limits login, hashes opaque refresh values, rotates refresh under row lock, records spent generations and commits replay-family revocation. Access tokens remain in React memory. Test fixtures contain deliberately disposable passwords/keys; none are production credentials.
+
+Keep secrets outside Git; APP_KEY, RSA keys and future key-rotation configuration must be identical across nodes. APP_DEBUG=false; TLS and exact CORS/trusted proxy settings are mandatory. The CLI Docker server is development-only. Shared rate limiting requires Redis and a verified proxy/IP policy; per-account login throttling and full CSRF bootstrap/cross-tab renewal remain open. Temporary administrator resets currently force a change/revoke sessions but do not yet enforce the specified24-hour validity. Do not mistake these partial controls for the final authentication contract.
+
+Project roles/direct grants/group denies are implemented in part. The complete76-key target catalog is docs/specifications/permission-catalog.json. Existing coarse aliases still need alignment and complete action/section/ownership checks, filtered queries, update/revoke workflows and capabilities. Full external service/delegation security is **absent**, and there are no operational external handlers to enable.
+
+Files are accepted by a bounded MIME allowlist, encrypted using Laravel Crypt in262144-byte chunks and privately streamed after project authorization. The final immutable result-evidence binding and complete file UI/policies are unfinished. Protect database and encryption keys; validate backup restores. Do not expose broad project-level downloads as final section-aware evidence security.
+
+Before release, test every endpoint for IDOR, role/group/direct/category/section deny, self-escalation, state/ownership constraints and archived projects. Include concurrent refresh, preview/review/result/closure races; newest retest failure handling; expired account/delegation/credential rejection; key/audience/claim checks; validation/resource exhaustion; native uploads20MiB; secret/PII logging; spreadsheet escaping; rate limiting across nodes; mobile keyboard and browser print. Record outcomes and unresolved findings. Never report an unimplemented module as passed.

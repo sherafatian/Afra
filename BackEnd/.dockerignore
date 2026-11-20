@@ -1,0 +1,6 @@
+vendor
+.env
+storage/keys
+storage/logs
+storage/framework
+node_modules

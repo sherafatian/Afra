@@ -29,3 +29,11 @@ Homestead.json
 .env.production
 .phpactor.json
 auth.json
+
+**/vendor/
+**/node_modules/
+**/dist/
+**/.env
+**/storage/keys/
+**/*.tsbuildinfo
+**/bootstrap/cache/*.php

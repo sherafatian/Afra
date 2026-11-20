@@ -1,0 +1,30 @@
+services:
+  database-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: afra_test
+      POSTGRES_USER: afra_test
+      POSTGRES_PASSWORD: disposable-tests-only
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U afra_test]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  tests:
+    build: ./BackEnd
+    environment:
+      APP_ENV: testing
+      APP_KEY: base64:QWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
+      DB_CONNECTION: pgsql
+      DB_HOST: database-test
+      DB_DATABASE: afra_test
+      DB_USERNAME: afra_test
+      DB_PASSWORD: disposable-tests-only
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      HASH_DRIVER: bcrypt
+    command: [sh, -c, 'touch .env && php artisan test --compact']
+    depends_on:
+      database-test: {condition: service_healthy}

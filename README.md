@@ -1,18 +1,41 @@
-# Afra | افرا
+# افرا | Afra
 
-سامانه مدیریت تست دستی با هویت نارنجی، فارسی/انگلیسی و تاریخ شمسی.
+سامانه مدیریت آزمون دستی با تم نارنجی و نام‌گذاری خانواده درخت‌ها.
 
-## نسخه جاری — ۴٫۱
+**وضعیت: پیاده‌سازی در حال تکمیل است؛ نسخه آماده تولید نیست.** هسته واقعی Laravel/React اضافه شده، اما کل امکانات درخواستی هنوز پیاده نشده‌اند. [وضعیت دقیق فارسی](docs/implementation-status.fa.md) · [English status](docs/implementation-status.en.md)
 
-- [UI مستقل و تعاملی](afra-ui-v4.html): فایل را با Download raw file بگیرید و در مرورگر باز کنید.
-- [نمونه PDF گزارش چاپی](docs/samples/afra-service-usage.pdf): داده آموزشی؛ چهار صفحه با همه48درخواست نمونه.
-- [شرح جامع سیستم](afra-system-spec-v4.md)
-- [شرح کامل و مستقل BackEnd](BackEnd/README.md): Laravel 13، JWT، حساب‌ها، دسترسی عملیاتی، API سرویس و Delegation.
-- [شرح کامل و مستقل FrontEnd](FrontEnd/README.md): React، TypeScript و Ant Design با قرارداد HTTP مشترک.
-- [راهنمای Word فارسی](afra-user-guide-fa.docx): نسخه محتوایی ۳٫۳، با جلد و فهرست پویای بازطراحی‌شده؛ قابلیت‌های جدید کاربران/سرویس نسخه۴ در اسناد بالا توضیح داده شده‌اند.
+## شرح مستقل سیستم
 
-HTML، نمونه آفلاین است و Laravel/React عملیاتی، سرور JWT یا endpoint بیرونی اجرا نمی‌کند. پوشه‌های BackEnd و FrontEnd فعلاً اسناد مستقل و قابل واگذاری برای پیاده‌سازی دارند. اطلاعات واقعی شخصی، رمز و کلید تولیدی را وارد نمونه نکنید.
+| سند | فارسی | English |
+|---|---|---|
+| شرح کلی محصول | [فارسی](docs/specifications/system.fa.md) | [English](docs/specifications/system.en.md) |
+| شرح مستقل بک‌اند | [فارسی](BackEnd/SPEC.fa.md) | [English](BackEnd/SPEC.en.md) |
+| شرح مستقل فرانت‌اند | [فارسی](FrontEnd/SPEC.fa.md) | [English](FrontEnd/SPEC.en.md) |
+| راه‌اندازی و عملیات | [فارسی](docs/operations/setup.fa.md) | [English](docs/operations/setup.en.md) |
+| امنیت و پذیرش | [فارسی](docs/operations/security.fa.md) | [English](docs/operations/security.en.md) |
+| راهنمای کاربر Word | [فارسی](docs/guides/afra-user-guide-fa.docx) | [English](docs/guides/afra-user-guide-en.docx) |
+| راهنمای قابل جست‌وجوی Markdown | [فارسی](docs/guides/user-guide.fa.md) | [English](docs/guides/user-guide.en.md) |
+| نسخه PDF راهنما | [فارسی](docs/guides/afra-user-guide-fa.pdf) | [English](docs/guides/afra-user-guide-en.pdf) |
 
-نسخه‌های قدیمی برای مراجعه تاریخی حفظ شده‌اند. قابلیت‌های تست خودکار، CI/CD، Webhook و ورود سازمانی خارج از دامنه‌اند؛ سرویس بیرونی مدیریت‌شده ثبت تست و گزارش هر پروژه با درخواست مالک داخل دامنه است.
+فایل‌های SPEC مستقل شامل شرح دامنه محصول‌اند و برای تحویل جداگانه به تیم یا AI طراحی شده‌اند. شرح نیازمندی با وضعیت واقعی کد متفاوت است. فایل‌های README قبلی در پوشه‌های بک‌اند و فرانت‌اند شرح طراحی تاریخی‌اند؛ SPECهای بالا مرجع جدیدند.
 
-در نسخه۴٫۱: منوی آواتار واحد، رفع هم‌پوشانی تاریخ و عکس، Switchهای دوتایی، مجوزهای Radio و گروه‌بندی، فیلتر رویداد، گزارش مصرف سرویس، داشبورد تازه و پیش‌نمایش چاپ مستقل اضافه شده‌اند. آمار مصرف نمونه آفلاین آموزشی است و از فراخوانی واقعی شبکه به دست نیامده است.
+## سورس و پیش‌نمایش
+
+- [BackEnd](BackEnd): Laravel13 / PHP8.4، REST/JWT، PostgreSQL و Redis.
+- [FrontEnd](FrontEnd): React19، TypeScript و Ant Design، متصل به API واقعی.
+- [پیش‌نمایش HTML مستقل نسخه۴](afra-ui-v4.html): مرجع تعاملی آفلاین؛ احراز هویت یا سرور عملیاتی ندارد. نسخه‌های قدیمی برای تاریخچه حفظ شده‌اند.
+- [تصاویر خود برنامه](docs/screenshots): از اجرای محلی React با داده آموزشی ساختگی؛ تصویر طراحی به‌جای برنامه واقعی معرفی نشده است.
+- [فهرست۷۶مجوز هدف](docs/specifications/permission-catalog.json).
+- [Docker توسعه](compose.yaml) و [محیط جداگانه آزمون](compose.test.yaml).
+
+شروع معمولی: دستورهای دقیق، ساخت دیتابیس و مدیر اولیه در راهنمای راه‌اندازی آمده است. رمز مدیر یا کلید تولید پیش‌فرض نداریم. پوشه‌های vendor، node_modules، کلید و فایل محیط وارد Git نمی‌شوند.
+
+## English
+
+Afra is an orange-themed manual QA/test management product. This repository now includes a real separate Laravel13/PHP8.4 API and React/TypeScript/Ant Design frontend, bilingual standalone specifications, setup/security notes and Word/Markdown/PDF guides with actual application screenshots.
+
+**The complete requested implementation is unfinished and this is not production-ready.** Read the explicit status document before deployment. Generic record forms and the offline HTML preview do not constitute completed planning, requirement-impact, configuration, fine-grained security or exposed-service workflows. The source and specifications make those gaps explicit.
+
+Start with the setup guide linked above.10000–100000 means registered accounts, not concurrent users. The target supports multi-node deployment using shared PostgreSQL/Redis/keys and database attachments up to20MiB; production packaging/security/load acceptance remains work in progress. No organization server has been accessed.
+
+The guides contain QA principles and test case design in chapter1, and step-by-step application/target-workflow instructions in chapter2. Word uses embedded Vazir for Persian, Cambria for Latin, an Afra cover, running header/footer and a native TOC field. In Word, update the entire TOC to calculate page numbers. PDF generation on hosts without Cambria may use a compatible fallback; the Word font declaration remains Cambria.
