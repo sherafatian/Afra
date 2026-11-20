@@ -3,7 +3,7 @@
   "info": {
     "title": "Afra core API (implementation in progress)",
     "version": "0.1.0",
-    "description": "Current core routes only. See implementation-status.en.md; no exposed-service/delegation API is implemented. Product target contract is separate. Some secondary record/user request schemas remain incomplete in this draft."
+    "description": "Current core routes only. See implementation-status.en.md; no exposed-service/delegation API is implemented. Product target contract is separate. Secondary generic-record schemas remain incomplete in this draft."
   },
   "servers": [
     {
@@ -3102,6 +3102,15 @@
               "minimum": 1,
               "default": 1
             }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 0
+            }
           }
         ],
         "responses": {
@@ -3187,6 +3196,16 @@
               }
             }
           }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountCreateInput"
+              }
+            }
+          }
         }
       }
     },
@@ -3207,6 +3226,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current account_version; conflict409 requires reloading."
           }
         ],
         "responses": {
@@ -3244,6 +3272,16 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountUpdateInput"
+              }
+            }
           }
         }
       }
@@ -3265,6 +3303,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Current account_version; conflict409 requires reloading."
           }
         ],
         "responses": {
@@ -3302,6 +3349,16 @@
           },
           "429": {
             "description": "Rate limit exceeded"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountResetInput"
+              }
+            }
           }
         }
       }
@@ -3839,6 +3896,109 @@
         },
         "required": [
           "ids"
+        ]
+      },
+      "AccountCreateInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 250
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "is_system_admin": {
+            "type": "boolean"
+          },
+          "expires_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Civil ISO date converted from Solar Hijri input. Access includes the entire selected Tehran day."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password",
+          "reason"
+        ]
+      },
+      "AccountUpdateInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 250
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "is_system_admin": {
+            "type": "boolean"
+          },
+          "expires_on": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Civil ISO date converted from Solar Hijri input. Access includes the entire selected Tehran day."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "AccountResetInput": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "password",
+          "reason"
         ]
       }
     }

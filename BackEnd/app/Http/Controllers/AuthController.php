@@ -31,7 +31,7 @@ class AuthController extends Controller
         $u = User::where('email', mb_strtolower($v['email']))->first();
         $dummyHash = config('hashing.driver') === 'argon2id' ? '$argon2id$v=19$m=65536,t=4,p=1$vLvifhBofgFByhowKOyIbA$kepkHXpsL0px1D+utE6g7yRkh8BK0CaYIDacukskMy8' : '$2y$12$1ZzK2MY4jz9DY0qzRbxJ/eA16lj/V6CnDviB3Yb4t2rS.lPge44r6';
         $valid = Hash::check($v['password'], $u?->password ?? $dummyHash);
-        abort_unless($u && $valid && $u->active && (! $u->expires_at || now()->lt($u->expires_at)), 401, 'Invalid credentials.');
+        abort_unless($u && $valid && (! $u->temporary_password_expires_at || now()->lt($u->temporary_password_expires_at)) && $u->active && (! $u->expires_at || now()->lt($u->expires_at)), 401, 'Invalid credentials.');
         $sid = (string) Str::uuid();
         $refresh = bin2hex(random_bytes(32));
         $csrf = bin2hex(random_bytes(32));
@@ -89,11 +89,12 @@ class AuthController extends Controller
     public function password(Request $r): JsonResponse
     {
         $v = $r->validate(['current_password' => 'required|string', 'password' => 'required|string|min:12|max:128|confirmed']);
-        $u = $r->user();
-        abort_unless(Hash::check($v['current_password'], $u->password), 422, 'Current password is incorrect.');
-        abort_if(Hash::check($v['password'], $u->password), 422, 'Choose a different password.');
-        DB::transaction(function () use ($u, $v) {
-            $u->forceFill(['password' => Hash::make($v['password']), 'must_change_password' => false, 'auth_version' => $u->auth_version + 1])->save();
+        DB::transaction(function () use ($r, $v) {
+            $u = User::lockForUpdate()->findOrFail($r->user()->id);
+            abort_unless($u->auth_version === $r->user()->auth_version, 409, 'Account security changed. Sign in again.');
+            abort_unless(Hash::check($v['current_password'], $u->password), 422, 'Current password is incorrect.');
+            abort_if(Hash::check($v['password'], $u->password), 422, 'Choose a different password.');
+            $u->forceFill(['password' => Hash::make($v['password']), 'must_change_password' => false, 'temporary_password_expires_at' => null, 'auth_version' => $u->auth_version + 1, 'account_version' => $u->account_version + 1])->save();
             DB::table('auth_sessions')->where('user_id', $u->id)->update(['revoked_at' => now()]);
         });
 

@@ -44,6 +44,7 @@ import {
 } from "@ant-design/icons";
 import { api, send, setCredentials, ApiError } from "./api";
 import { Evidence } from "./Evidence";
+import { SystemUsers } from "./SystemUsers";
 import { AccessPanel } from "./AccessPanel";
 import { MemberPicker } from "./MemberPicker";
 import "./style.css";
@@ -161,7 +162,9 @@ function Application() {
   const workspaceGeneration = useRef(0);
   const projectRequest = useRef(0);
   const dataRequest = useRef(0);
+  const [systemUsersOpen, setSystemUsersOpen] = useState(false);
   const resetWorkspace = () => {
+    setSystemUsersOpen(false);
     workspaceGeneration.current++;
     projectRequest.current++;
     dataRequest.current++;
@@ -666,6 +669,15 @@ function Application() {
       : reviewTarget.record.content
     : null;
   const accountItems = [
+    ...(user?.is_system_admin
+      ? [
+          {
+            key: "system-users",
+            label: l("حساب‌های سازمانی", "Organization accounts"),
+            icon: <UserOutlined />,
+          },
+        ]
+      : []),
     { key: "profile", label: t("profile"), icon: <UserOutlined /> },
     { key: "password", label: t("password"), icon: <SettingOutlined /> },
     { key: "appearance", label: t("appearance"), icon: <SettingOutlined /> },
@@ -809,7 +821,9 @@ function Application() {
                 menu={{
                   items: accountItems,
                   onClick: async ({ key }) => {
-                    if (key === "logout") {
+                    if (key === "system-users") {
+                      setSystemUsersOpen(true);
+                    } else if (key === "logout") {
                       await logout();
                     } else if (key === "profile") {
                       open(key, { ...user, ...user.profile });
@@ -1189,6 +1203,14 @@ function Application() {
               </button>
             </nav>
           </Layout>
+          {user.is_system_admin && (
+            <SystemUsers
+              open={systemUsersOpen}
+              onClose={() => setSystemUsersOpen(false)}
+              language={lang}
+              currentUser={user.id}
+            />
+          )}
           <Drawer
             open={!!reviewTarget}
             onClose={() => setReviewTarget(null)}

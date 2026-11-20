@@ -1,0 +1,6 @@
+# Minimal configuration used only for generating the application's RSA signing key.
+# Avoids depending on a machine-wide openssl.cnf path on Windows.
+[req]
+distinguished_name = req_distinguished_name
+
+[req_distinguished_name]

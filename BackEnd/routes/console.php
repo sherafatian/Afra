@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\SigningKeys;
 use Illuminate\Support\Facades\Artisan;
 
 Artisan::command('afra:admin {email} {name}', function () {
@@ -21,19 +22,16 @@ Artisan::command('afra:admin {email} {name}', function () {
     $u->save();
     $this->info('Administrator created. Password change is required.');
 });
-Artisan::command('afra:keys', function () {
-    $dir = storage_path('keys');
-    if (is_file($dir.'/private.pem')) {
-        $this->error('Keys already exist; refusing to overwrite.');
+Artisan::command('afra:keys {--config= : OpenSSL configuration file (optional)}', function () {
+    $configuration = $this->option('config') ?: (getenv('OPENSSL_CONF') ?: resource_path('openssl.cnf'));
+    try {
+        app(SigningKeys::class)->generate(storage_path('keys'), $configuration);
+    } catch (RuntimeException $error) {
+        $this->error($error->getMessage());
 
         return 1;
     }
-    if (! is_dir($dir)) {
-        mkdir($dir, 0700, true);
-    } $key = openssl_pkey_new(['private_key_bits' => 3072, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    openssl_pkey_export($key, $private);
-    file_put_contents($dir.'/private.pem', $private);
-    chmod($dir.'/private.pem', 0600);
-    file_put_contents($dir.'/public.pem', openssl_pkey_get_details($key)['key']);
-    $this->info('RSA keys generated. Share securely across application nodes.');
+    $this->info('RSA3072 signing keys generated. Keep private.pem private; restrict its Windows NTFS permissions to your account and authorized application identities.');
+
+    return 0;
 });

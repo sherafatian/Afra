@@ -12,10 +12,10 @@ class User extends Authenticatable
 
     protected $fillable = ['name', 'email', 'password'];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'remember_token', 'temporary_password_expires_at'];
 
     protected function casts(): array
     {
-        return ['email_verified_at' => 'datetime', 'password' => 'hashed', 'active' => 'boolean', 'is_system_admin' => 'boolean', 'must_change_password' => 'boolean', 'expires_at' => 'datetime', 'auth_version' => 'integer', 'acl_version' => 'integer', 'profile' => 'array'];
+        return ['email_verified_at' => 'datetime', 'password' => 'hashed', 'active' => 'boolean', 'is_system_admin' => 'boolean', 'must_change_password' => 'boolean', 'expires_at' => 'datetime', 'auth_version' => 'integer', 'acl_version' => 'integer', 'profile' => 'array', 'account_version' => 'integer', 'temporary_password_expires_at' => 'datetime'];
     }
 }
