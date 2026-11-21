@@ -89,7 +89,7 @@ class RequirementController extends Controller
             $compatible = ! $record->archived && ($link->requirement_version === $record->version || DB::table('requirement_compatibilities')->where('test_case_id', $case->id)->where('case_version', $case->version)->where('requirement_id', $record->id)->where('requirement_version', $record->version)->exists());
             // Only results from an item that actually froze this exact requirement revision count.
             $items = app(Access::class)->scope(DB::table('run_items'), $request, $project)->where('test_case_id', $case->id)->whereRaw("(snapshot->>'version')::integer = ?", [$case->version])->whereJsonContains('requirement_bindings', [['id' => $record->id, 'version' => $record->version]]);
-            $latest = DB::table('test_results')->whereIn('run_item_id', (clone $items)->select('id'))->orderByDesc('created_at')->orderByDesc('id')->first();
+            $latest = DB::table('test_results')->whereIn('run_item_id', (clone $items)->select('id'))->orderByDesc('recorded_order')->first();
             $state = ! $compatible ? 'stale' : ($latest?->outcome ?? (! $items->exists() ? 'not_planned' : 'not_run'));
 
             return ['id' => $case->id, 'title' => $case->title, 'version' => $case->version, 'author_id' => $case->author_id, 'review_status' => $case->status, 'linked_version' => $link->requirement_version, 'compatible' => $compatible, 'coverage' => $state];

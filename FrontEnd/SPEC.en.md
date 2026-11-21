@@ -1,5 +1,8 @@
 # Afra — standalone frontend implementation specification
 
+**Phase scope override —21 November2026:** exposed services, service clients/delegation and their consumption reports are deferred to a later phase and are not acceptance blockers for this phase. Organization deployment is performed by the owner; source, configuration templates and software validation remain deliverables. Subsequent exposed-service sections describe future scope.
+
+
 The complete product specification follows this frontend contract. It can be given independently to another team or AI. Code maturity is separately recorded in docs/implementation-status.en.md.
 
 ## Frontend architecture

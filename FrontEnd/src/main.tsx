@@ -51,6 +51,13 @@ import {
   endSession,
 } from "./api";
 import { Evidence } from "./Evidence";
+import { QualityReport } from "./QualityReport";
+import { RecordsPanel, definitionKinds } from "./RecordsPanel";
+import { civilToSolar } from "./solarDate";
+import { detachShared } from "./sharedSteps";
+import { SharedBindings } from "./SharedBindings";
+import { VariablesEditor } from "./DefinitionEditors";
+import { ReferencePicker } from "./ReferencePicker";
 import { RequirementsPanel } from "./RequirementsPanel";
 import { RequirementPicker } from "./RequirementPicker";
 import { SystemUsers } from "./SystemUsers";
@@ -112,7 +119,7 @@ const groups: Record<string, string[]> = {
   execution: [],
   defects: [],
   quality: ["releases"],
-  people: ["users", "audit", "custom-fields", "services"],
+  people: ["users", "audit", "custom-fields"],
 };
 const icons = [
   <AppstoreOutlined />,
@@ -159,6 +166,7 @@ function Application() {
   const [selected, setSelected] = useState<any>(null);
   const [run, setRun] = useState<any>(null);
   const [form] = Form.useForm();
+  const resultRequest = useRef(crypto.randomUUID());
   const [checks, setChecks] = useState<string[]>([]);
   const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
   const [runItem, setRunItem] = useState<any>(null);
@@ -171,9 +179,14 @@ function Application() {
   const workspaceGeneration = useRef(0);
   const projectRequest = useRef(0);
   const dataRequest = useRef(0);
+  const [qualityTarget, setQualityTarget] = useState<{
+    kind: "runs" | "releases";
+    id: string;
+  } | null>(null);
   const [systemUsersOpen, setSystemUsersOpen] = useState(false);
   const resetWorkspace = () => {
     setSystemUsersOpen(false);
+    setQualityTarget(null);
     workspaceGeneration.current++;
     projectRequest.current++;
     dataRequest.current++;
@@ -361,7 +374,11 @@ function Application() {
       request === dataRequest.current &&
       generation === workspaceGeneration.current;
     if (!project || !user || user.must_change_password) return;
-    if (tab === "users" || tab === "requirements") {
+    if (
+      tab === "users" ||
+      tab === "requirements" ||
+      definitionKinds.includes(tab)
+    ) {
       setRows([]);
       setBusy(false);
       return;
@@ -443,6 +460,19 @@ function Application() {
         },
       });
     }
+    if (kind === "cases" && row) {
+      const content =
+        typeof row.content === "string" ? JSON.parse(row.content) : row.content;
+      const {
+        local_checklist,
+        shared_sources: _sources,
+        ...editable
+      } = content;
+      form.setFieldValue("content", {
+        ...editable,
+        checklist: local_checklist || content.checklist,
+      });
+    }
     setEditor(kind);
   };
   const save = async () => {
@@ -492,7 +522,7 @@ function Application() {
           ...v,
           checks,
           evidence_ids: evidenceIds,
-          request_id: crypto.randomUUID(),
+          request_id: resultRequest.current,
         });
         setRun(await api(base + "/runs/" + run.id));
       } else if (editor === "transition") {
@@ -633,17 +663,25 @@ function Application() {
       render: (_: any, row: any) => (
         <Space wrap>
           {tab === "execution" ? (
-            <Button
-              onClick={async () => {
-                try {
-                  setRun(await api(base + "/runs/" + row.id));
-                } catch (e) {
-                  error(e);
-                }
-              }}
-            >
-              {l("اجرای تست", "Execute")}
-            </Button>
+            <>
+              <Button
+                disabled={!capabilities["reports.read"]}
+                onClick={() => setQualityTarget({ kind: "runs", id: row.id })}
+              >
+                {l("گزارش کیفیت", "Quality report")}
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    setRun(await api(base + "/runs/" + row.id));
+                  } catch (e) {
+                    error(e);
+                  }
+                }}
+              >
+                {l("اجرای تست", "Execute")}
+              </Button>
+            </>
           ) : tab === "cases" ? (
             <>
               <Button
@@ -967,7 +1005,7 @@ function Application() {
                   )}
                   {tab === "cases" && (
                     <Button
-                      disabled={!picked.length}
+                      disabled={!picked.length || !capabilities["runs.create"]}
                       onClick={() => {
                         form.resetFields();
                         setEditor("execution");
@@ -983,6 +1021,7 @@ function Application() {
                     "execution",
                     "users",
                     "requirements",
+                    ...definitionKinds,
                   ].includes(tab) && (
                     <Button
                       type="primary"
@@ -1128,9 +1167,19 @@ function Application() {
                     <Card
                       title={run.title}
                       extra={
-                        <Button onClick={() => setRun(null)}>
-                          {l("بازگشت", "Back")}
-                        </Button>
+                        <Space>
+                          <Button
+                            disabled={!capabilities["reports.read"]}
+                            onClick={() =>
+                              setQualityTarget({ kind: "runs", id: run.id })
+                            }
+                          >
+                            {l("گزارش کیفیت", "Quality report")}
+                          </Button>
+                          <Button onClick={() => setRun(null)}>
+                            {l("بازگشت", "Back")}
+                          </Button>
+                        </Space>
                       }
                     >
                       <List
@@ -1149,6 +1198,7 @@ function Application() {
                                 key="execute"
                                 type="primary"
                                 onClick={() => {
+                                  resultRequest.current = crypto.randomUUID();
                                   setRunItem(item);
                                   setEvidenceIds([]);
                                   setChecks(
@@ -1168,6 +1218,22 @@ function Application() {
                               title={item.snapshot.title}
                               description={
                                 <>
+                                  {item.configuration?.name && (
+                                    <Tag color="blue">
+                                      {item.configuration.name}
+                                    </Tag>
+                                  )}
+                                  {item.data_snapshot && (
+                                    <Tag>
+                                      {l("ردیف داده", "Data row")}{" "}
+                                      {item.data_snapshot.row + 1}
+                                    </Tag>
+                                  )}
+                                  <Tag>
+                                    {item.required
+                                      ? l("الزامی", "Required")
+                                      : l("اختیاری", "Optional")}
+                                  </Tag>
                                   {l("نسخه ثابت", "Frozen revision")}{" "}
                                   {item.snapshot.version} ·{" "}
                                   {l("تعداد تلاش‌ها", "Attempts")}:{" "}
@@ -1190,6 +1256,20 @@ function Application() {
                         )}
                       />
                     </Card>
+                  ) : definitionKinds.includes(tab) ? (
+                    <RecordsPanel
+                      key={project + tab}
+                      project={project}
+                      kind={tab}
+                      userId={user.id}
+                      language={lang}
+                      permissions={capabilities}
+                      onRun={(value) => {
+                        setRun(value);
+                        setGroup("execution");
+                        setTab("execution");
+                      }}
+                    />
                   ) : tab === "requirements" ? (
                     <RequirementsPanel
                       key={project}
@@ -1297,6 +1377,16 @@ function Application() {
               </button>
             </nav>
           </Layout>
+          {qualityTarget && (
+            <QualityReport
+              project={project}
+              kind={qualityTarget.kind}
+              id={qualityTarget.id}
+              language={lang}
+              canExport={!!capabilities["reports.export"]}
+              onClose={() => setQualityTarget(null)}
+            />
+          )}
           {user.is_system_admin && (
             <SystemUsers
               open={systemUsersOpen}
@@ -1350,6 +1440,25 @@ function Application() {
                         l(" — نیازمند بررسی تغییر", " — stale coverage")}
                     </Tag>
                   ),
+                )}
+                {Object.keys(reviewContent.variables || {}).length > 0 && (
+                  <Card
+                    size="small"
+                    title={l(
+                      "مقادیر پیش‌فرض متغیرها",
+                      "Default variable values",
+                    )}
+                  >
+                    <List
+                      dataSource={Object.entries(reviewContent.variables)}
+                      renderItem={([key, value]) => (
+                        <List.Item>
+                          <strong dir="ltr">{key}</strong>
+                          <span>{String(value)}</span>
+                        </List.Item>
+                      )}
+                    />
+                  </Card>
                 )}
                 {reviewContent.preconditions && (
                   <Card
@@ -1763,6 +1872,77 @@ function Application() {
                       {runItem?.snapshot.title}
                     </Typography.Title>
                     <p>{runItem?.snapshot.content.preconditions}</p>
+                    {runItem?.configuration && (
+                      <Card
+                        size="small"
+                        title={l("زمینه اجرا", "Execution context")}
+                        style={{ marginBottom: 16 }}
+                      >
+                        <Space wrap>
+                          {["name", "browser", "os", "device"].map(
+                            (key) =>
+                              runItem.configuration[key] && (
+                                <Tag key={key}>
+                                  {runItem.configuration[key]}
+                                </Tag>
+                              ),
+                          )}
+                        </Space>
+                        {runItem.configuration.environments && (
+                          <p>
+                            {l("محیط", "Environment")}:{" "}
+                            {runItem.configuration.environments.title} ·{" "}
+                            {runItem.configuration.environments.content?.url}
+                          </p>
+                        )}
+                        {runItem.configuration.builds && (
+                          <p>
+                            {l("ساخت", "Build")}:{" "}
+                            {runItem.configuration.builds.title} ·{" "}
+                            {runItem.configuration.builds.content?.label}
+                          </p>
+                        )}
+                      </Card>
+                    )}
+                    {runItem?.data_snapshot && (
+                      <Card
+                        size="small"
+                        title={l(
+                          "داده ثابت این مورد",
+                          "Frozen data for this item",
+                        )}
+                        style={{ marginBottom: 16 }}
+                      >
+                        <p>
+                          {runItem.data_snapshot.dataset?.title} ·{" "}
+                          {l("ردیف", "Row")} {runItem.data_snapshot.row + 1}
+                        </p>
+                        <List
+                          dataSource={Object.entries(
+                            runItem.data_snapshot.values || {},
+                          )}
+                          renderItem={([key, value]) => (
+                            <List.Item>
+                              <strong dir="ltr">{key}</strong>
+                              <span>
+                                {runItem.data_snapshot.dataset?.columns?.find(
+                                  (column: any) => column.key === key,
+                                )?.type === "date" &&
+                                typeof value === "string" &&
+                                value
+                                  ? civilToSolar(value)
+                                  : typeof value === "boolean"
+                                    ? value
+                                      ? l("بله", "True")
+                                      : l("خیر", "False")
+                                    : String(value ?? "—")}
+                              </span>
+                            </List.Item>
+                          )}
+                        />
+                      </Card>
+                    )}
+
                     <div className="execution-checklist">
                       {runItem?.snapshot.content.checklist.map(
                         (s: any, i: number) => (
@@ -1932,6 +2112,72 @@ function Application() {
                     >
                       <RequirementPicker project={project} language={lang} />
                     </Form.Item>
+                    <Form.Item
+                      name={["content", "variables"]}
+                      label={l(
+                        "مقادیر پیش‌فرض متغیرها",
+                        "Default variable values",
+                      )}
+                      extra={l(
+                        "در متن از {{name}} استفاده کنید. داده ردیف بر مقدار پیش‌فرض مقدم است.",
+                        "Use {{name}} in text. Dataset row values override defaults.",
+                      )}
+                    >
+                      <VariablesEditor language={lang} />
+                    </Form.Item>
+                    <Form.Item label={l("استفاده از قالب", "Use template")}>
+                      <ReferencePicker
+                        project={project}
+                        kind="templates"
+                        onChange={async (id) => {
+                          if (typeof id !== "string") return;
+                          try {
+                            const template = await api(
+                              `${base}/records/templates/${id}`,
+                            );
+                            const current = form.getFieldValue("content") || {};
+                            form.setFieldValue("content", {
+                              ...current,
+                              ...template.content,
+                            });
+                          } catch (e) {
+                            error(e);
+                          }
+                        }}
+                      />
+                    </Form.Item>
+                    <Form.Item noStyle shouldUpdate>
+                      {() => (
+                        <Form.Item
+                          name={["content", "shared_blocks"]}
+                          label={l(
+                            "مراحل مشترک نسخه‌دار",
+                            "Versioned shared steps",
+                          )}
+                        >
+                          <SharedBindings
+                            project={project}
+                            language={lang}
+                            localCount={
+                              (
+                                form.getFieldValue(["content", "checklist"]) ||
+                                []
+                              ).length
+                            }
+                            onDetach={(binding, steps) => {
+                              form.setFieldValue(
+                                "content",
+                                detachShared(
+                                  form.getFieldValue("content"),
+                                  binding,
+                                  steps,
+                                ),
+                              );
+                            }}
+                          />
+                        </Form.Item>
+                      )}
+                    </Form.Item>
                     <Typography.Title level={5}>
                       {l("چک‌لیست آزمون", "Test checklist")}
                     </Typography.Title>
@@ -1945,11 +2191,34 @@ function Application() {
                               key={key}
                               title={l("مورد ", "Step ") + (i + 1)}
                               extra={
-                                fields.length > 1 && (
+                                (fields.length > 1 ||
+                                  (
+                                    form.getFieldValue([
+                                      "content",
+                                      "shared_blocks",
+                                    ]) || []
+                                  ).length > 0) && (
                                   <Button
                                     danger
                                     type="text"
-                                    onClick={() => remove(name)}
+                                    onClick={() => {
+                                      remove(name);
+                                      const blocks =
+                                        form.getFieldValue([
+                                          "content",
+                                          "shared_blocks",
+                                        ]) || [];
+                                      form.setFieldValue(
+                                        ["content", "shared_blocks"],
+                                        blocks.map((item: any) => ({
+                                          ...item,
+                                          position:
+                                            item.position > name
+                                              ? item.position - 1
+                                              : item.position,
+                                        })),
+                                      );
+                                    }}
                                   >
                                     {l("حذف", "Remove")}
                                   </Button>

@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Services\Access;
 use App\Services\AssignmentRules;
+use App\Services\DomainRecords;
+use App\Services\ExecutionPlanning;
 use App\Services\RequirementCoverage;
+use App\Services\SharedSteps;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -136,13 +139,17 @@ class WorkspaceController extends Controller
 
     public function cases(Request $r, string $project): JsonResponse
     {
-        $r->validate(['q' => 'nullable|string|max:200', 'section_id' => 'nullable|uuid', 'per_page' => 'sometimes|integer|min:1|max:100']);
+        $r->validate(['q' => 'nullable|string|max:200', 'section_id' => 'nullable|uuid', 'summary' => 'sometimes|boolean', 'per_page' => 'sometimes|integer|min:1|max:100']);
         $this->access($r, $project);
         $q = app(Access::class)->scope(DB::table('test_cases')->where('project_id', $project), $r, $project);
         if ($r->filled('q')) {
             $q->where('title', 'ilike', '%'.mb_substr($r->string('q'), 0, 200).'%');
         }if ($r->filled('section_id')) {
             $q->where('section_id', $r->input('section_id'));
+        }
+
+        if ($r->boolean('summary')) {
+            $q->select('id', 'title', 'version', 'status', 'section_id', 'assignee_id');
         }
 
         return $this->reply($q->orderByDesc('updated_at')->paginate(min(100, max(1, (int) $r->input('per_page', 25)))));
@@ -162,10 +169,18 @@ class WorkspaceController extends Controller
 
     private function caseInput(Request $r, string $project): array
     {
-        $v = $r->validate(['title' => 'required|string|max:250', 'section_id' => 'nullable|uuid', 'assignee_id' => 'nullable|integer', 'substitute_id' => 'nullable|integer', 'assignment_version' => 'sometimes|integer|min:1', 'priority' => 'required|in:critical,high,medium,low', 'content' => 'required|array:preconditions,expected,checklist,tags,type,estimate,requirements', 'content.requirements' => 'sometimes|array|max:100', 'content.requirements.*' => 'array:id,version', 'content.requirements.*.id' => 'required|uuid|distinct', 'content.requirements.*.version' => 'required|integer|min:1', 'content.preconditions' => 'nullable|string|max:10000', 'content.expected' => 'nullable|string|max:10000', 'content.type' => 'nullable|in:functional,regression,smoke,security,performance', 'content.estimate' => 'nullable|integer|min:1|max:1440', 'content.tags' => 'nullable|array|max:30', 'content.tags.*' => 'string|max:60', 'content.checklist' => 'required|array|min:1|max:200', 'content.checklist.*' => 'array:text,expected,required', 'content.checklist.*.text' => 'required|string|max:3000', 'content.checklist.*.expected' => 'required|string|max:3000', 'content.checklist.*.required' => 'required|boolean']);
+        $v = $r->validate(['title' => 'required|string|max:250', 'section_id' => 'nullable|uuid', 'assignee_id' => 'nullable|integer', 'substitute_id' => 'nullable|integer', 'assignment_version' => 'sometimes|integer|min:1', 'priority' => 'required|in:critical,high,medium,low', 'content' => 'required|array:preconditions,expected,checklist,tags,type,estimate,requirements,variables,shared_blocks', 'content.shared_blocks' => 'sometimes|array|list|max:20', 'content.shared_blocks.*' => 'array:id,version,position', 'content.shared_blocks.*.id' => 'required|uuid|distinct', 'content.shared_blocks.*.version' => 'required|integer|min:1', 'content.shared_blocks.*.position' => 'required|integer|min:0|max:200', 'content.variables' => 'sometimes|array|max:30', 'content.requirements' => 'sometimes|array|list|max:100', 'content.requirements.*' => 'array:id,version', 'content.requirements.*.id' => 'required|uuid|distinct', 'content.requirements.*.version' => 'required|integer|min:1', 'content.preconditions' => 'nullable|string|max:10000', 'content.expected' => 'nullable|string|max:10000', 'content.type' => 'nullable|in:functional,regression,smoke,security,performance', 'content.estimate' => 'nullable|integer|min:1|max:1440', 'content.tags' => 'nullable|array|list|max:30', 'content.tags.*' => 'string|max:60', 'content.checklist' => 'present|array|list|max:200', 'content.checklist.*' => 'array:text,expected,required', 'content.checklist.*.text' => 'required|string|max:3000', 'content.checklist.*.expected' => 'required|string|max:3000', 'content.checklist.*.required' => 'required|boolean']);
         if (! empty($v['section_id'])) {
             $this->record('sections', $v['section_id'], $project);
         }
+        abort_if(empty($v['content']['checklist']) && empty($v['content']['shared_blocks']), 422, 'A local or approved shared checklist is required.');
+        foreach ($v['content']['shared_blocks'] ?? [] as $block) {
+            abort_if($block['position'] > count($v['content']['checklist']), 422, 'Shared step position is outside the local checklist.');
+        }
+        foreach ($v['content']['variables'] ?? [] as $key => $value) {
+            abort_unless(preg_match('/^[A-Za-z][A-Za-z0-9_]{0,49}$/', $key) && is_scalar($value) && (! is_string($value) || mb_strlen($value) <= 3000) && (! is_float($value) || is_finite($value)), 422, 'Invalid case variable.');
+        }
+        abort_if(strlen(json_encode($v['content'])) > 131072, 422, 'Case content exceeds128KiB. Split this case into smaller checks.');
         foreach (['assignee_id', 'substitute_id'] as $key) {
             if (isset($v[$key])) {
                 $v[$key] = (int) $v[$key];
@@ -203,6 +218,7 @@ class WorkspaceController extends Controller
             if ($changed) {
                 abort_unless((int) ($v['assignment_version'] ?? 0) === $old->assignment_version, 409, 'The assignment changed. Reload before saving.');
             }
+            $v['content'] = app(SharedSteps::class)->compose($r, $project, $v['content'], $old ? json_decode($old->content, true) : []);
             $version = ($old->version ?? 0) + 1;
             $assignmentVersion = ($old->assignment_version ?? 1) + ($changed ? 1 : 0);
             $row = $v;
@@ -264,12 +280,28 @@ class WorkspaceController extends Controller
             return app(RequirementController::class)->index($r, $project);
         }
 
-        return $this->reply(DB::table('project_records')->where('project_id', $project)->where('kind', $kind)->orderByDesc('updated_at')->paginate(25));
+        $r->validate(['q' => 'nullable|string|max:200', 'per_page' => 'sometimes|integer|min:1|max:100', 'archived' => 'sometimes|boolean', 'summary' => 'sometimes|boolean']);
+        $query = DB::table('project_records')->where('project_id', $project)->where('kind', $kind)->where('archived', $r->boolean('archived'));
+        if ($kind === 'saved-views') {
+            $query->where(fn ($q) => $q->whereRaw("COALESCE(content->>'visibility', 'team') = 'team'")->orWhere('owner_id', $r->user()->id));
+        }
+        if ($r->filled('q')) {
+            $query->where('title', 'ilike', '%'.$r->input('q').'%');
+        }
+
+        if ($r->boolean('summary')) {
+            $query->select(['id', 'title', 'version', 'owner_id', 'archived', 'updated_at'])->selectRaw("content->>'visibility' AS visibility");
+        }
+        if ($kind === 'shared-steps') {
+            $query->when(! $r->boolean('summary'), fn ($q) => $q->addSelect('project_records.*'))->selectSub(DB::table('project_record_revisions')->select('review_status')->whereColumn('record_id', 'project_records.id')->whereColumn('version', 'project_records.version'), 'review_status')->selectSub(DB::table('project_record_revisions')->selectRaw('MAX(version)')->whereColumn('record_id', 'project_records.id')->where('review_status', 'approved'), 'approved_version');
+        }
+
+        return $this->reply($query->orderByDesc('updated_at')->orderBy('id')->paginate((int) $r->input('per_page', 25)));
     }
 
     private function kind(string $kind): void
     {
-        abort_unless(in_array($kind, ['requirements', 'plans', 'releases', 'environments', 'builds', 'templates', 'datasets', 'shared-steps', 'saved-views', 'custom-fields', 'configuration-profiles'], true), 404);
+        abort_unless(in_array($kind, DomainRecords::KINDS, true), 404);
     }
 
     public function saveRecord(Request $r, string $project, string $kind, ?string $record = null): JsonResponse
@@ -282,20 +314,31 @@ class WorkspaceController extends Controller
             'shared-steps' => 'shared','configuration-profiles' => 'profiles','custom-fields' => 'fields',default => $kind
         };
         $operation = $kind === 'saved-views' ? 'views.manage' : $prefix.'.'.($record ? 'update' : 'create');
-        $this->access($r, $project, $operation);
+        $this->access($r, $project, $kind === 'saved-views' ? 'project.view' : $operation);
         $v = $r->validate(['title' => 'required|string|max:250', 'content' => 'required|array']);
+        $v['content'] = app(DomainRecords::class)->validate($r, $project, $kind, $v['content']);
         $id = $record ?? (string) Str::uuid();
         DB::transaction(function () use ($r, $project, $kind, $record, $v, $id) {
             $old = $record ? DB::table('project_records')->where('id', $id)->where('project_id', $project)->where('kind', $kind)->lockForUpdate()->first() : null;
             if ($record) {
                 abort_unless($old, 404);
                 abort_unless((string) $old->version === $r->header('If-Match'), 409);
+                abort_if($old->archived, 409);
+                if ($kind === 'saved-views') {
+                    if ((json_decode($old->content, true)['visibility'] ?? 'team') === 'personal') {
+                        abort_unless($old->owner_id === $r->user()->id, 404);
+                    } else {
+                        $this->access($r, $project, 'views.manage');
+                    }
+                }
             }$row = ['title' => $v['title'], 'content' => json_encode($v['content']), 'version' => ($old->version ?? 0) + 1, 'updated_at' => now()];
             if ($old) {
                 DB::table('project_records')->where('id', $id)->update($row);
             } else {
-                DB::table('project_records')->insert($row + ['id' => $id, 'project_id' => $project, 'kind' => $kind, 'created_at' => now()]);
-            }$this->audit($r, $project, $kind.'.save', $id, ['version' => $row['version']]);
+                DB::table('project_records')->insert($row + ['id' => $id, 'project_id' => $project, 'kind' => $kind, 'owner_id' => $r->user()->id, 'created_at' => now()]);
+            }
+            DB::table('project_record_revisions')->insert(['record_id' => $id, 'version' => $row['version'], 'author_id' => $r->user()->id, 'snapshot' => json_encode(['title' => $v['title'], 'content' => $v['content']]), 'created_at' => now()]);
+            $this->audit($r, $project, $kind.'.save', $id, ['version' => $row['version']]);
         });
 
         return $this->reply(DB::table('project_records')->find($id), $record ? 200 : 201);
@@ -307,24 +350,28 @@ class WorkspaceController extends Controller
 
         $items = app(Access::class)->scope(DB::table('run_items'), $r, $project)->select('test_run_id');
 
-        return $this->reply(DB::table('test_runs')->where('project_id', $project)->whereIn('id', $items)->orderByDesc('created_at')->paginate(25));
+        return $this->reply(DB::table('test_runs')->where('project_id', $project)->whereIn('id', $items)->orderByDesc('run_order')->paginate(25));
     }
 
     public function createRun(Request $r, string $project): JsonResponse
     {
         $this->access($r, $project, 'runs.create');
-        $v = $r->validate(['title' => 'required|string|max:250', 'cases' => 'required|array|min:1|max:1000', 'cases.*' => 'required|array:id,version', 'cases.*.id' => 'required|uuid|distinct', 'cases.*.version' => 'required|integer|min:1']);
+        $v = $r->validate(['title' => 'required|string|max:250', 'cases' => 'required|array|list|min:1|max:1000', 'cases.*' => 'required|array:id,version', 'cases.*.id' => 'required|uuid|distinct', 'cases.*.version' => 'required|integer|min:1']);
         $id = (string) Str::uuid();
         DB::transaction(function () use ($r, $project, $v, $id) {
             DB::table('test_runs')->insert(['id' => $id, 'project_id' => $project, 'title' => $v['title'], 'created_by' => $r->user()->id, 'created_at' => now(), 'updated_at' => now()]);
-            $locked = DB::table('test_cases')->where('project_id', $project)->whereIn('id', array_column($v['cases'], 'id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $locked = DB::table('test_cases')->where('project_id', $project)->whereIn('id', array_column($v['cases'], 'id'))->select('id')->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $bytes = 0;
             foreach ($v['cases'] as $entry) {
-                $c = $locked->get($entry['id']);
+                $c = $locked->has($entry['id']) ? DB::table('test_cases')->where('id', $entry['id'])->first() : null;
                 abort_unless($c, 404);
                 $this->access($r, $project, 'runs.create', $c->section_id);
                 abort_unless($c->status === 'approved' && $c->version === $entry['version'], 409, 'Only the current approved revision can enter a run. Refresh the selection.');
                 $bindings = app(RequirementCoverage::class)->bindings($c);
-                DB::table('run_items')->insert(['requirement_bindings' => json_encode($bindings), 'id' => (string) Str::uuid(), 'test_run_id' => $id, 'test_case_id' => $c->id, 'section_id' => $c->section_id, 'snapshot' => json_encode(['case_id' => $c->id, 'version' => $c->version, 'title' => $c->title, 'assignment_version' => $c->assignment_version, 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'requirements' => $bindings, 'content' => json_decode($c->content, true)]), 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'created_at' => now(), 'updated_at' => now()]);
+                $snapshot = app(ExecutionPlanning::class)->snapshot($c, $bindings);
+                $bytes += strlen(json_encode($snapshot));
+                abort_if($bytes > 8 * 1024 * 1024, 422, 'Execution snapshots exceed8MiB. Reduce the scope.');
+                DB::table('run_items')->insert(['requirement_bindings' => json_encode($bindings), 'id' => (string) Str::uuid(), 'test_run_id' => $id, 'test_case_id' => $c->id, 'section_id' => $c->section_id, 'snapshot' => json_encode($snapshot), 'assignee_id' => $c->assignee_id, 'substitute_id' => $c->substitute_id, 'created_at' => now(), 'updated_at' => now()]);
             }$this->audit($r, $project, 'runs.create', $id);
         });
 
@@ -339,8 +386,20 @@ class WorkspaceController extends Controller
         abort_if($items->isEmpty(), 404);
         foreach ($items as $item) {
             $item->snapshot = json_decode($item->snapshot, true);
-            $item->results = DB::table('test_results')->leftJoin('users', 'users.id', '=', 'test_results.actor_id')->where('test_results.run_item_id', $item->id)->select('test_results.*', 'users.name as actor_current_name')->orderBy('test_results.created_at')->get();
+            $item->configuration = $item->configuration ? json_decode($item->configuration, true) : null;
+            $item->data_snapshot = $item->data_snapshot ? json_decode($item->data_snapshot, true) : null;
+            $item->results = DB::table('test_results')->leftJoin('users', 'users.id', '=', 'test_results.actor_id')->where('test_results.run_item_id', $item->id)->select('test_results.*', 'users.name as actor_current_name')->orderBy('test_results.recorded_order')->get();
         }$data->items = $items;
+        if ($data->scope_snapshot) {
+            $scope = json_decode($data->scope_snapshot, true);
+            $scope['unique_cases'] = $items->pluck('test_case_id')->unique()->count();
+            $scope['total_items'] = $items->count();
+            $scope['required_items'] = $items->where('required', true)->count();
+            if (($scope['sources']['view']['content']['visibility'] ?? null) === 'personal' && $data->created_by !== $r->user()->id) {
+                $scope['sources']['view'] = ['visibility' => 'personal'];
+            }
+            $data->scope_snapshot = $scope;
+        }
 
         return $this->reply($data);
     }
@@ -354,7 +413,7 @@ class WorkspaceController extends Controller
         $this->access($r, $project, 'runs.execute', $i->section_id);
         $member = DB::table('project_members')->where('project_id', $project)->where('user_id', $r->user()->id)->first();
         abort_unless($r->user()->is_system_admin || $member?->role === 'admin' || ($i->assignee_id === $r->user()->id || $i->substitute_id === $r->user()->id), 403, 'This item is assigned to another tester.');
-        $v = $r->validate(['evidence_ids' => 'sometimes|array|max:20', 'evidence_ids.*' => 'uuid|distinct', 'request_id' => 'required|uuid', 'outcome' => 'required|in:pass,fail,blocked,skipped', 'checks' => 'required|array|max:200', 'checks.*' => 'required|in:pass,fail,skipped,not_run', 'comment' => 'nullable|string|max:5000']);
+        $v = $r->validate(['evidence_ids' => 'sometimes|array|list|max:20', 'evidence_ids.*' => 'uuid|distinct', 'request_id' => 'required|uuid', 'outcome' => 'required|in:pass,fail,blocked,skipped', 'checks' => 'required|array|list|max:200', 'checks.*' => 'required|in:pass,fail,skipped,not_run', 'comment' => 'nullable|string|max:5000']);
         $steps = json_decode($i->snapshot, true)['content']['checklist'];
         abort_unless(count($v['checks']) === count($steps), 422, 'Every checklist item needs a result.');
         if ($v['outcome'] === 'pass') {
@@ -404,7 +463,7 @@ class WorkspaceController extends Controller
         $item = DB::table('run_items')->join('test_runs', 'test_runs.id', '=', 'run_items.test_run_id')->where('run_items.id', $v['run_item_id'])->where('test_runs.project_id', $project)->first();
         abort_unless($item, 404);
         $this->access($r, $project, 'defects.create', $item->section_id);
-        $latest = DB::table('test_results')->where('run_item_id', $v['run_item_id'])->orderByDesc('created_at')->first();
+        $latest = DB::table('test_results')->where('run_item_id', $v['run_item_id'])->orderByDesc('recorded_order')->first();
         abort_unless($latest && $latest->outcome === 'fail', 409, 'A recorded failed result is required.');
         $id = (string) Str::uuid();
         DB::table('defects')->insert($v + ['id' => $id, 'source_result_id' => $latest->id, 'project_id' => $project, 'history' => json_encode([['actor' => $r->user()->name, 'action' => 'created', 'description' => $v['description'], 'at' => now()->toIso8601String()]]), 'created_at' => now(), 'updated_at' => now()]);
@@ -429,7 +488,7 @@ class WorkspaceController extends Controller
                     abort_unless($v['confirmed'] ?? false, 422, 'Confirm unverified closure.');
                 } else {
                     abort_unless($d->status === 'resolved' && $d->resolved_at, 409, 'Resolve the defect before closing.');
-                    $latestRetest = DB::table('test_results')->join('retest_links', 'retest_links.run_item_id', '=', 'test_results.run_item_id')->where('retest_links.defect_id', $defect)->orderByDesc('test_results.created_at')->select('test_results.outcome', 'test_results.created_at')->first();
+                    $latestRetest = DB::table('test_results')->join('retest_links', 'retest_links.run_item_id', '=', 'test_results.run_item_id')->where('retest_links.defect_id', $defect)->orderByDesc('test_results.recorded_order')->select('test_results.outcome', 'test_results.created_at')->first();
                     $verified = $latestRetest && $latestRetest->outcome === 'pass' && CarbonImmutable::parse($latestRetest->created_at)->gt(CarbonImmutable::parse($d->resolved_at));
                     abort_unless($verified, 409, 'Record a Pass in a linked retest after the fix was marked resolved.');
                 }
@@ -496,7 +555,7 @@ class WorkspaceController extends Controller
         $item = (string) Str::uuid();
         DB::transaction(function () use ($r, $project, $defect, $d, $source, $run, $item) {
             DB::table('test_runs')->insert(['id' => $run, 'project_id' => $project, 'title' => 'Retest: '.$d->title, 'created_by' => $r->user()->id, 'created_at' => now(), 'updated_at' => now()]);
-            DB::table('run_items')->insert(['id' => $item, 'test_run_id' => $run, 'test_case_id' => $source->test_case_id, 'section_id' => $source->section_id, 'snapshot' => $source->snapshot, 'requirement_bindings' => $source->requirement_bindings, 'assignee_id' => $r->user()->id, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('run_items')->insert(['id' => $item, 'test_run_id' => $run, 'test_case_id' => $source->test_case_id, 'section_id' => $source->section_id, 'baseline_item_id' => $source->baseline_item_id ?? $source->id, 'snapshot' => $source->snapshot, 'configuration' => $source->configuration, 'data_snapshot' => $source->data_snapshot, 'required' => $source->required, 'variant_key' => $source->variant_key, 'requirement_bindings' => $source->requirement_bindings, 'assignee_id' => $r->user()->id, 'created_at' => now(), 'updated_at' => now()]);
             DB::table('retest_links')->insert(['id' => (string) Str::uuid(), 'defect_id' => $defect, 'run_item_id' => $item, 'created_at' => now(), 'updated_at' => now()]);
             $this->audit($r, $project, 'defects.retest', $defect, ['run_id' => $run, 'item_id' => $item]);
         });

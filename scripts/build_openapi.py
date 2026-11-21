@@ -18,6 +18,25 @@ schemas.update({'AccountCreateInput':obj({**account_properties,'password':{'type
 requirement_content=obj({'description':{'type':'string','maxLength':20000},'acceptance_criteria':{'type':'string','maxLength':20000},'product_version':{'type':['string','null'],'maxLength':100},'priority':{'enum':['critical','high','medium','low']}},['description','acceptance_criteria','priority'])
 schemas.update({'RequirementInput':obj({'title':{'type':'string','maxLength':250},'content':requirement_content,'reason':{'type':'string','minLength':10,'maxLength':2000}},['title','content','reason']),'RequirementCompatibilityInput':obj({'case_id':uuid,'case_version':{'type':'integer','minimum':1},'requirement_version':{'type':'integer','minimum':1},'reason':{'type':'string','minLength':10,'maxLength':2000}},['case_id','case_version','requirement_version','reason']),'ReasonInput':obj({'reason':{'type':'string','minLength':10,'maxLength':2000}},['reason']),'EndSessionInput':obj({'expected_session_id':uuid},['expected_session_id']),'RefreshInput':obj({'expected_session_id':uuid,'expected_user_id':{'type':'integer','minimum':1}},['expected_session_id','expected_user_id'])})
 schemas['CaseInput']['properties']['content']['properties']['requirements']={'type':'array','maxItems':100,'items':obj({'id':uuid,'version':{'type':'integer','minimum':1}},['id','version'])}
+
+scalar={'type':['string','number','boolean']}
+schemas['CaseInput']['properties']['content']['properties'].update({'variables':{'type':'object','maxProperties':30,'additionalProperties':scalar},'shared_blocks':{'type':'array','maxItems':20,'items':obj({'id':uuid,'version':{'type':'integer','minimum':1},'position':{'type':'integer','minimum':0,'maximum':200}},['id','version','position'])}})
+schemas['CaseInput']['properties']['content']['properties']['checklist']['minItems']=0
+schemas['CaseInput']['properties']['content']['properties']['checklist']['description']='Local editable steps when shared_blocks are supplied. Server resolves independently approved pins; derived local_checklist/shared_sources from detail responses must not be sent as input. At least one local or resolved shared step is required.'
+schemas.update({
+ 'PlanDefinition':obj({'case_ids':{'type':'array','maxItems':1000,'uniqueItems':True,'items':uuid},'saved_view_id':uuid,'configuration_profile_id':uuid,'release_id':uuid,'description':string},['case_ids']),
+ 'DatasetDefinition':obj({'columns':{'type':'array','minItems':1,'maxItems':30,'items':obj({'key':{'type':'string','pattern':'^[A-Za-z][A-Za-z0-9_]{0,49}$'},'type':{'enum':['string','number','boolean','date']},'required':{'type':'boolean'}},['key','type','required'])},'rows':{'type':'array','minItems':1,'maxItems':500,'items':{'type':'object','additionalProperties':{'type':['string','number','boolean','null']}}}},['columns','rows']),
+ 'ConfigurationDefinition':obj({'rows':{'type':'array','minItems':1,'maxItems':20,'items':obj({'id':uuid,'name':{'type':'string','maxLength':100},'environment_id':uuid,'build_id':uuid,'dataset_id':uuid,'browser':string,'os':string,'device':string,'required':{'type':'boolean'}},['id','name','required'])}},['rows']),
+ 'ChecklistDefinition':obj({'preconditions':string,'expected':string,'checklist':{'type':'array','minItems':1,'maxItems':200,'items':step}},['checklist']),
+ 'ViewCondition':{'oneOf':[obj({'mode':{'enum':['and','or']},'rules':{'type':'array','minItems':1,'maxItems':20,'items':{'$ref':'#/components/schemas/ViewCondition'}}},['mode','rules']),obj({'field':{'enum':['title','priority','status','type','tag','assignee_id','section_id','requirement_id']},'operator':{'enum':['eq','in','contains','descendants']},'value':{}},['field','operator','value'])],'description':'Depth <=3; <=40 nodes overall; operators and typed values depend on the allowlisted field.'},
+ 'ViewDefinition':obj({'visibility':{'enum':['personal','team']},'conditions':{'$ref':'#/components/schemas/ViewCondition'},'order':{'enum':['title','priority','updated_at']},'direction':{'enum':['asc','desc']},'columns':{'type':'array','items':{'enum':['title','priority','status','assignee_id','section_id','version','updated_at']}}},['visibility','conditions']),
+ 'ReleaseDefinition':obj({'product_version':string,'description':string,'gates':obj({'max_open_critical':{'type':'integer','minimum':0,'maximum':1000},'minimum_pass_rate':{'type':'number','minimum':0,'maximum':100},'allow_blocked':{'type':'boolean'},'allow_forced_critical':{'type':'boolean','default':False}},['max_open_critical','minimum_pass_rate','allow_blocked'])},['product_version','gates']),
+ 'RecordInput':obj({'title':{'type':'string','maxLength':250},'content':{'type':'object','description':'Kind-specific definition, <=2MiB. See PlanDefinition, DatasetDefinition, ConfigurationDefinition, ChecklistDefinition, ViewDefinition and ReleaseDefinition. Requirements use dedicated endpoints.'}},['title','content']),
+ 'PlanningPreviewInput':obj({'plan_id':uuid},['plan_id']),
+ 'PlannedRunInput':obj({'title':{'type':'string','maxLength':250},'preview_token':{'type':'string','pattern':'^[a-f0-9]{64}$'},'selected':{'type':'array','maxItems':1000,'uniqueItems':True,'items':{'type':'string','minLength':64,'maxLength':64}}},['title','preview_token']),
+ 'ReferenceOptionsInput':obj({'kind':{'enum':['cases','requirements','plans','releases','environments','builds','templates','datasets','shared-steps','saved-views','custom-fields','configuration-profiles']},'ids':{'type':'array','maxItems':1000,'uniqueItems':True,'items':uuid}},['kind','ids'])
+})
+
 paths={}
 for route in routes:
  path='/'+route['uri'];params=[{'name':name,'in':'path','required':True,'schema':string}for name in __import__('re').findall(r'{([^}]+)}',path)]
@@ -31,11 +50,29 @@ for route in routes:
    which={'create':'AccountCreateInput','update':'AccountUpdateInput','reset':'AccountResetInput'}.get(action)
    if action in ['update','reset']:operation['parameters'].append({'name':'If-Match','in':'header','required':True,'schema':string,'description':'Current account_version; conflict409 requires reloading.'})
   if 'RequirementController' in route['action']:which={'save':'RequirementInput','confirm':'RequirementCompatibilityInput','archive':'ReasonInput'}.get(action)
+  if 'PlanningController' in route['action']:
+   which='PlanningPreviewInput' if action=='preview' else 'PlannedRunInput'
+   operation['description']='Preview expands current approved cases × configuration rows × typed data rows; <=1000 items /8MiB. Token expires after5 minutes, is actor/project bound, detects dependency/ACL changes and makes identical confirmation idempotent. Required variants cannot be deselected.'
+   operation['responses']['410']={'description':'Preview expired'}
+   if action=='create':operation['responses']['201']=operation['responses'].pop('200')
+  if action=='saveRecord':which='RecordInput'
+  if 'RecordController' in route['action'] and action=='archive':
+   which='ReasonInput'
+   operation['parameters'].append({'name':'If-Match','in':'header','required':True,'schema':string})
+  if 'RecordController' in route['action'] and action=='options':which='ReferenceOptionsInput'
+  if 'RecordController' in route['action'] and action=='detail':operation['parameters'].append({'name':'revision_page','in':'query','schema':{'type':'integer','minimum':1,'default':1}})
+  if 'SharedStepController' in route['action'] and action=='review':
+   which='ReviewInput'
+   operation['description']='Only current shared revision may be submitted or decided. Independent reviewer; exact pinned versions stay unchanged in existing cases/runs. New consumer revisions create drafts.'
+  if 'QualityController' in route['action']:
+   operation['parameters'].append({'name':'export','in':'query','schema':{'type':'boolean','default':False}})
+   operation['description']='Section-scoped quality matrix with required/optional variants and latest explicitly linked retests. export=true additionally requires reports.export. Release readiness is withheld under partial visibility or stale source revisions; forced closure is never a verified Pass.'
   if action=='refresh':which='RefreshInput'
   if 'SessionController' in route['action'] and action=='end':which='EndSessionInput'
   if path=='/api/ready':operation['security']=[]
   if path.endswith('/archive') and 'requirements' in path:operation['parameters'].append({'name':'If-Match','in':'header','required':True,'schema':string})
   if which:operation['requestBody']={'required':True,'content':{'application/json':{'schema':{'$ref':'#/components/schemas/'+which}}}}
+  if method=='get' and action=='records':operation['parameters'] += [{'name':'summary','in':'query','schema':{'type':'boolean','default':False},'description':'Return metadata only; omit potentially large definitions.'},{'name':'per_page','in':'query','schema':{'type':'integer','minimum':1,'maximum':100,'default':25}},{'name':'q','in':'query','schema':string}]
   if method=='get'and action in ['cases','runs','records','defects','projects','members','index','auditEvents']:operation['parameters'].append({'name':'page','in':'query','schema':{'type':'integer','minimum':1,'default':1}})
   if 'SessionController' in route['action']:operation['parameters'].append({'name':'X-Afra-Client','in':'header','required':True,'schema':{'const':'spa'}})
   if action=='refresh':operation['parameters'] += [{'name':'Origin','in':'header','required':True,'schema':string},{'name':'X-CSRF-Token','in':'header','required':True,'schema':string}];operation['description']='Requires opaque afra_refresh HttpOnly cookie and allowed Origin/CSRF nonce. Rotates token; replay revokes family.'
@@ -48,8 +85,8 @@ for route in routes:
   if method=='get' and action=='index' and 'FileController' in route['action']:
    operation['parameters']=[item for item in operation['parameters'] if item['name']!='page']+[{'name':'entity_type','in':'query','required':True,'schema':{'enum':['project','case','run_item','result','defect']}},{'name':'entity_id','in':'query','required':True,'schema':uuid}]
   if method=='get' and (action in ['members','directory','cases'] or ('UserController' in route['action'] and action=='index')):operation['parameters'].append({'name':'q','in':'query','required':action=='directory','schema':{'type':'string','minLength':2 if action=='directory' else 0}})
-  if method=='post' and action in ['create','createProject','createSection','createRun','result','createDefect','upload','retest','saveCase','saveRecord','saveGroup','saveRole','save']:
+  if method=='post' and '200' in operation['responses'] and action in ['create','createProject','createSection','createRun','result','createDefect','upload','retest','saveCase','saveRecord','saveGroup','saveRole','save']:
    operation['responses']['201']=operation['responses'].pop('200')
   paths.setdefault(path,{})[method]=operation
-spec={'openapi':'3.1.0','info':{'title':'Afra core API (implementation in progress)','version':'0.1.0','description':'Current core routes only. See implementation-status.en.md; no exposed-service/delegation API is implemented. Product target contract is separate. Secondary generic-record schemas remain incomplete in this draft.'},'servers':[{'url':'http://localhost:8000'}],'paths':paths,'components':{'securitySchemes':{'bearerAuth':{'type':'http','scheme':'bearer','bearerFormat':'JWT RS256'}},'schemas':schemas}}
+spec={'openapi':'3.1.0','info':{'title':'Afra core API (implementation in progress)','version':'0.1.0','description':'Current core routes only. See implementation-status.en.md; no exposed-service/delegation API is implemented. Product target contract is separate. Typed planning, dataset, configuration, view, shared-review and quality-report routes are included. Deferred exposed services are excluded; unfinished generic custom fields are not a complete target contract.'},'servers':[{'url':'http://localhost:8000'}],'paths':paths,'components':{'securitySchemes':{'bearerAuth':{'type':'http','scheme':'bearer','bearerFormat':'JWT RS256'}},'schemas':schemas}}
 (root/'docs/openapi.json').write_text(json.dumps(spec,ensure_ascii=False,indent=2));print(len(paths),'documented paths')

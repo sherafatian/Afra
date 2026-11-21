@@ -17,3 +17,15 @@ Install Python Playwright and supply Chromium at `/usr/bin/chromium`. Start loca
 `PHP_BINARY=php python scripts/build_openapi.py` regenerates the current-route OpenAPI draft from Laravel routes. The draft does not define unimplemented external services; secondary user/record schemas still require completion.
 
 See the implementation-status documents for mandatory remaining work. No100k-account capacity or complete deployment/readiness claim has been made.
+
+## Planning, release quality and shared steps — 21 November 2026
+
+Focused PostgreSQL regressions cover matrix expansion (2 cases ×2 configurations ×2 data rows), false/zero preservation, Solar date rendering with ISO source retention, required/optional selection, actor-bound expiring previews, changed-source rejection and idempotent confirmation. Nested saved views reject unsupported fields, preserve literal wildcard search and isolate private owners. Shared steps reject self approval, stale reviews, cross-project/forged sources and unapproved pins; upgrades create new drafts, old revisions stay unchanged, archived existing pins remain usable, and record history is paginated.
+
+Actual browser acceptance passed both `planning_workflow.py` and `shared_steps_workflow.py` with no page errors or failed API requests. Planning preview showed8 items/4 required; deselecting one optional item created7. A reviewed shared block plus one local step saved two resolved steps and one local step with the approved revision pinned. Mobile390×844 document-width checks passed after responsive layout settled. Training data only; no organization deployment.
+
+Run/release quality reports filter sections, aggregate required variants, use latest explicitly linked observations and database baseline ordering, reject global readiness under partial visibility/stale sources and retain forced closure as unverified. Export permission is independently checked. Printable output escapes user text and includes all rows. A generated60-row print demonstration rendered to five A4 landscape pages, with repeated table headers and the final row verified in PDF text. This demonstration is not a user-guide update or complete print/accessibility audit.
+
+OpenAPI now documents55 paths/71 unique operations, including planning, typed definitions, shared review and quality-report routes. Remaining functionality/security/capacity limitations are recorded in `docs/release-acceptance.en.md`. Exposed services are deferred by the owner; organization deployment belongs to the owner.
+
+[Planning preview](../screenshots/planning-matrix-preview.png) · [Quality report](../screenshots/planning-quality-report.png) · [Shared steps on mobile](../screenshots/shared-steps-mobile.png)

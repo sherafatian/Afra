@@ -34,10 +34,12 @@
 
 Afra is an orange-themed manual QA/test management product. This repository now includes a real separate Laravel13/PHP8.4 API and React/TypeScript/Ant Design frontend, bilingual standalone specifications, setup/security notes and Word/Markdown/PDF guides with actual application screenshots.
 
-**The complete requested implementation is unfinished and this is not production-ready.** Read the explicit status document before deployment. Generic record forms and the offline HTML preview do not constitute completed planning, requirement-impact, configuration, fine-grained security or exposed-service workflows. The source and specifications make those gaps explicit.
+**The complete requested implementation is unfinished and this is not production-ready.** Read the explicit status document before deployment. Typed planning, configuration/data expansion, reviewed pinned shared steps, requirement revision impact and scoped quality reporting are implemented. Custom-field value workflows, full identity/avatar profiles, execution drafts/collaboration, imports and historical matrices remain unfinished; the status documents distinguish them. Exposed services are deferred by the owner for this phase.
 
-Start with the setup guide linked above.10000–100000 means registered accounts, not concurrent users. The target supports multi-node deployment using shared PostgreSQL/Redis/keys and database attachments up to20MiB; production packaging/security/load acceptance remains work in progress. No organization server has been accessed.
+Start with the setup guide linked above.10000–100000 means registered accounts, not concurrent users. The target supports multi-node deployment using shared PostgreSQL/Redis/keys and database attachments up to20MiB; full software/security/load acceptance remains work in progress; the owner handles organization deployment. No organization server has been accessed.
 
 The guides contain QA principles and test case design in chapter1, and step-by-step application/target-workflow instructions in chapter2. Word uses embedded Vazir for Persian, Cambria for Latin, an Afra cover, running header/footer and a native TOC field. In Word, update the entire TOC to calculate page numbers. PDF generation on hosts without Cambria may use a compatible fallback; the Word font declaration remains Cambria.
 
 بررسی آمادگی زیرساخت: `php artisan afra:check --production`. این فرمان جای پذیرش کامل محصول نیست. [موانع انتشار](docs/release-acceptance.fa.md) · [Release blockers](docs/release-acceptance.en.md) · [استقرار بدون Docker](deploy/README.fa.md) · [Native deployment templates](deploy/README.en.md).
+
+به‌روزرسانی برنامه‌ریزی، داده، نما، مراحل مشترک و گزارش کیفیت: [دستورهای ویندوز بدون Docker/Herd](docs/operations/planning-upgrade.fa.md) · [English upgrade notes](docs/operations/planning-upgrade.en.md). راهنماهای کاربری این نوبت تغییر نکرده‌اند. سرویس اکسپوزی از این فاز خارج و استقرار سازمان با مالک است.

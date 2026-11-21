@@ -1,5 +1,8 @@
 # Afra — standalone backend implementation specification
 
+**Phase scope override —21 November2026:** exposed services, service clients/delegation and their consumption reports are deferred to a later phase and are not acceptance blockers for this phase. Organization deployment is performed by the owner; source, configuration templates and software validation remain deliverables. Subsequent exposed-service sections describe future scope.
+
+
 The full product specification is included below so this file can be handed independently to another team or AI. Implement every domain invariant, not only resource CRUD. Current code maturity is separately recorded in docs/implementation-status.en.md.
 
 ## Backend architecture

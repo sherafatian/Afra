@@ -1,5 +1,8 @@
 # Afra — product specification, edition 5
 
+**Phase scope override —21 November2026:** exposed services, service clients/delegation and their consumption reports are deferred to a later phase and are not acceptance blockers for this phase. Organization deployment is performed by the owner; source, configuration templates and software validation remain deliverables. Subsequent exposed-service sections describe future scope.
+
+
 19 November 2026. This specifies the required finished product; it does **not** assert that every feature is implemented. See [implementation status](../implementation-status.en.md). Historical HTML is an offline design reference, not an authenticated application.
 
 ## Delivery and deployment assumptions
